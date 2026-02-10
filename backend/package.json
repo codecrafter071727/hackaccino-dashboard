@@ -1,0 +1,18 @@
+{
+  "name": "hackaccino-backend",
+  "version": "1.0.0",
+  "description": "Backend scripts for Hackaccino Dashboard",
+  "main": "importData.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "import": "node importData.js",
+    "check-db": "node check_db.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.1",
+    "express": "^5.2.1"
+  }
+}

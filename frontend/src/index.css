@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+@theme {
+  --color-college-primary: #1e3a8a;
+  --color-college-secondary: #f59e0b;
+  --color-college-accent: #10b981;
+  --color-college-bg: #f3f4f6;
+}
