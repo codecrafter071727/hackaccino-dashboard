@@ -59,8 +59,8 @@ const StudentRegistration: React.FC = () => {
     setLoading(true);
     try {
       const url = query 
-        ? `http://localhost:3000/api/teams?query=${encodeURIComponent(query)}`
-        : 'http://localhost:3000/api/teams';
+        ? `https://hackaccino-dashboard.onrender.com/api/teams?query=${encodeURIComponent(query)}`
+        : 'https://hackaccino-dashboard.onrender.com/api/teams';
       
       const response = await fetch(url);
       const data = await response.json();
@@ -153,7 +153,7 @@ const StudentRegistration: React.FC = () => {
 
     setUpdating(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/teams/${selectedTeam.team_id}`, {
+      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/teams/${selectedTeam.team_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

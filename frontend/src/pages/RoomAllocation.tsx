@@ -156,7 +156,7 @@ const RoomAllocation = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`http://localhost:3000/api/admin/rooms?block=${encodeURIComponent(block)}`);
+      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/admin/rooms?block=${encodeURIComponent(block)}`);
       if (!response.ok) {
         throw new Error('Failed to fetch rooms');
       }
@@ -173,7 +173,7 @@ const RoomAllocation = () => {
   const fetchAllTeams = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/teams');
+      const response = await fetch('https://hackaccino-dashboard.onrender.com/api/teams');
       if (response.ok) {
         const data = await response.json();
         setAllTeams(data);
@@ -201,7 +201,7 @@ const RoomAllocation = () => {
 
     setAssigningTeamId(team.team_id);
     try {
-      const response = await fetch(`http://localhost:3000/api/teams/${team.team_id}/assign-room`, {
+      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/teams/${team.team_id}/assign-room`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

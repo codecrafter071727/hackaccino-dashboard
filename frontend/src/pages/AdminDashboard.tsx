@@ -42,7 +42,7 @@ const AdminDashboard = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await fetch('http://localhost:3000/api/admin/assign-role', {
+      const response = await fetch('https://hackaccino-dashboard.onrender.com/api/admin/assign-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, duty }),
@@ -76,7 +76,7 @@ const AdminDashboard = () => {
     setRoomMessage({ type: '', text: '' });
 
     try {
-      const response = await fetch('http://localhost:3000/api/admin/create-room', {
+      const response = await fetch('https://hackaccino-dashboard.onrender.com/api/admin/create-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ block, room_name: roomName, capacity }),
