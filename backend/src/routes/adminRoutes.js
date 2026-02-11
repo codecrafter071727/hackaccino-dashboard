@@ -18,4 +18,16 @@ router.post('/create-room', adminController.createRoom);
 // Route to get rooms
 router.get('/rooms', adminController.getRooms);
 
+// Route to get system stats
+router.get('/stats', adminController.getStats);
+
+// Route for volunteer room allocation
+router.post('/assign-volunteer-room', adminController.assignVolunteerRoom);
+
+// Route to get all volunteer assignments
+router.get('/volunteers', adminController.getVolunteers);
+
+// Route to update volunteer presence
+router.patch('/update-volunteer-presence', adminController.updateVolunteerPresence);
+
 module.exports = router;

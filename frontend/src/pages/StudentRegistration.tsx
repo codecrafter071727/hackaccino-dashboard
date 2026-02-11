@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 import { supabase } from '../supabaseClient';
 
 interface TeamMember {
@@ -59,8 +60,8 @@ const StudentRegistration: React.FC = () => {
     setLoading(true);
     try {
       const url = query 
-        ? `https://hackaccino-dashboard.onrender.com/api/teams?query=${encodeURIComponent(query)}`
-        : 'https://hackaccino-dashboard.onrender.com/api/teams';
+        ? `${API_BASE_URL}/api/teams?query=${encodeURIComponent(query)}`
+        : `${API_BASE_URL}/api/teams`;
       
       const response = await fetch(url);
       const data = await response.json();
@@ -153,7 +154,7 @@ const StudentRegistration: React.FC = () => {
 
     setUpdating(true);
     try {
-      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/teams/${selectedTeam.team_id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/teams/${selectedTeam.team_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

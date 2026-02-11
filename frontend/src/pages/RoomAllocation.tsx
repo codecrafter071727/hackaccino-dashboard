@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 import { supabase } from '../supabaseClient';
 
 interface Team {
@@ -156,7 +157,7 @@ const RoomAllocation = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/admin/rooms?block=${encodeURIComponent(block)}`);
+      const response = await fetch(`${API_BASE_URL}/api/admin/rooms?block=${encodeURIComponent(block)}`);
       if (!response.ok) {
         throw new Error('Failed to fetch rooms');
       }
@@ -173,7 +174,7 @@ const RoomAllocation = () => {
   const fetchAllTeams = async () => {
     setLoading(true);
     try {
-      const response = await fetch('https://hackaccino-dashboard.onrender.com/api/teams');
+      const response = await fetch(`${API_BASE_URL}/api/teams`);
       if (response.ok) {
         const data = await response.json();
         setAllTeams(data);
@@ -201,7 +202,7 @@ const RoomAllocation = () => {
 
     setAssigningTeamId(team.team_id);
     try {
-      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/teams/${team.team_id}/assign-room`, {
+      const response = await fetch(`${API_BASE_URL}/api/teams/${team.team_id}/assign-room`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
