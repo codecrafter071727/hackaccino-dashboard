@@ -10,6 +10,5 @@ CREATE TABLE teams (
     registered_email TEXT,
     registered_phone TEXT,
     leader_present BOOLEAN DEFAULT FALSE,
-    leader_id_issued BOOLEAN DEFAULT FALSE,
-    allocated_room TEXT -- Stores the assigned room name
+    leader_id_issued BOOLEAN DEFAULT FALSE
 );

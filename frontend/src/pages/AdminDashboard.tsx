@@ -30,6 +30,11 @@ const AdminDashboard = () => {
   const [volunteerTime, setVolunteerTime] = useState('');
   const [volunteerMessage, setVolunteerMessage] = useState<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' });
 
+  // Judges Access Modal State
+  const [showJudgeModal, setShowJudgeModal] = useState(false);
+  const [judgeEmail, setJudgeEmail] = useState('');
+  const [judgeMessage, setJudgeMessage] = useState<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' });
+
   // System Analytics State
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [stats] = useState({
@@ -162,6 +167,38 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleAddJudge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setJudgeMessage({ type: '', text: '' });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/add-judge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: judgeEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setJudgeMessage({ type: 'success', text: 'Judge access granted successfully!' });
+        setJudgeEmail('');
+        setTimeout(() => {
+          setShowJudgeModal(false);
+          setJudgeMessage({ type: '', text: '' });
+        }, 1500);
+      } else {
+        setJudgeMessage({ type: 'error', text: data.error || 'Failed to grant access' });
+      }
+    } catch (error) {
+      console.error('Error adding judge:', error);
+      setJudgeMessage({ type: 'error', text: 'Network error. Ensure backend is running.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchStats = async () => {
     navigate('/admin/analytics');
   };
@@ -266,6 +303,28 @@ const AdminDashboard = () => {
               className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition-colors cursor-pointer disabled:opacity-50"
             >
               {loading ? 'Loading...' : 'View Analytics →'}
+            </button>
+          </div>
+
+          {/* Judges Access Card */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-green-500/20 rounded-xl text-green-400 group-hover:bg-green-500/30 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <span className="text-xs font-medium text-gray-400 bg-white/5 px-2 py-1 rounded-full">Judges</span>
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Judges Access</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Manage email addresses that have access to the Judges Portal.
+            </p>
+            <button 
+              onClick={() => setShowJudgeModal(true)}
+              className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition-colors cursor-pointer"
+            >
+              Manage Judges →
             </button>
           </div>
 
@@ -518,89 +577,139 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Volunteer Allocation Modal */}
-      {showVolunteerModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 w-full max-w-md relative shadow-2xl">
-            <button 
-              onClick={() => setShowVolunteerModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            
-            <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-emerald-400 to-teal-600 bg-clip-text text-transparent">
-              Volunteer Allocation
-            </h2>
+        {/* Volunteer Allocation Modal */}
+        {showVolunteerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowVolunteerModal(false)}></div>
+            <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md relative z-10 overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-6">Allocate Volunteer Room</h2>
+                <form onSubmit={handleAssignVolunteerRoom} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Volunteer Name</label>
+                    <input 
+                      type="text" 
+                      value={volunteerName}
+                      onChange={(e) => setVolunteerName(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 transition-colors"
+                      placeholder="Enter volunteer name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={volunteerPhone}
+                      onChange={(e) => setVolunteerPhone(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 transition-colors"
+                      placeholder="Enter phone number"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Room Number</label>
+                      <input 
+                        type="text" 
+                        value={volunteerRoom}
+                        onChange={(e) => setVolunteerRoom(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 transition-colors"
+                        placeholder="Room #"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Time Slot</label>
+                      <input 
+                        type="text" 
+                        value={volunteerTime}
+                        onChange={(e) => setVolunteerTime(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 transition-colors"
+                        placeholder="e.g. 10AM - 1PM"
+                        required
+                      />
+                    </div>
+                  </div>
 
-            {volunteerMessage.text && (
-              <div className={`mb-4 p-3 rounded-lg text-sm text-center ${volunteerMessage.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                {volunteerMessage.text}
+                  {volunteerMessage.text && (
+                    <div className={`p-3 rounded-lg text-sm ${volunteerMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                      {volunteerMessage.text}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 mt-6">
+                    <button 
+                      type="button"
+                      onClick={() => setShowVolunteerModal(false)}
+                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {loading ? 'Allocating...' : 'Allocate Room'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            )}
-
-            <form onSubmit={handleAssignVolunteerRoom} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 ml-1">Volunteer Name</label>
-                <input
-                  type="text"
-                  value={volunteerName}
-                  onChange={(e) => setVolunteerName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  placeholder="Enter full name"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 ml-1">Phone Number</label>
-                <input
-                  type="tel"
-                  value={volunteerPhone}
-                  onChange={(e) => setVolunteerPhone(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  placeholder="Enter phone number"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 ml-1">Room No.</label>
-                <input
-                  type="text"
-                  value={volunteerRoom}
-                  onChange={(e) => setVolunteerRoom(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  placeholder="e.g. 101, Lab A"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 ml-1">Time Slot</label>
-                <input
-                  type="text"
-                  value={volunteerTime}
-                  onChange={(e) => setVolunteerTime(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  placeholder="e.g. 09:00 AM - 12:00 PM"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Allocating...' : 'Allocate Room'}
-              </button>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Judges Access Modal */}
+        {showJudgeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowJudgeModal(false)}></div>
+            <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md relative z-10 overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-6">Manage Judges Access</h2>
+                <form onSubmit={handleAddJudge} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Judge Gmail Address</label>
+                    <input 
+                      type="email" 
+                      value={judgeEmail}
+                      onChange={(e) => setJudgeEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-green-500 transition-colors"
+                      placeholder="example@gmail.com"
+                      required
+                    />
+                    <p className="mt-2 text-xs text-gray-500">
+                      Enter the Google email address that the judge will use to sign in.
+                    </p>
+                  </div>
+
+                  {judgeMessage.text && (
+                    <div className={`p-3 rounded-lg text-sm ${judgeMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                      {judgeMessage.text}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 mt-6">
+                    <button 
+                      type="button"
+                      onClick={() => setShowJudgeModal(false)}
+                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {loading ? 'Adding...' : 'Grant Access'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

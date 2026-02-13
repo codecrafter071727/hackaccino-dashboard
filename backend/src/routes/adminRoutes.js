@@ -12,22 +12,13 @@ router.get('/assignments', adminController.getAssignments);
 // Route for Staff Login
 router.post('/staff-login', adminController.staffLogin);
 
-// Route to create a new room
+// Route to add a judge
+router.post('/add-judge', adminController.addJudge);
+
+// Route to create a room
 router.post('/create-room', adminController.createRoom);
 
-// Route to get rooms
-router.get('/rooms', adminController.getRooms);
-
-// Route to get system stats
-router.get('/stats', adminController.getStats);
-
-// Route for volunteer room allocation
+// Route to assign a volunteer to a room
 router.post('/assign-volunteer-room', adminController.assignVolunteerRoom);
-
-// Route to get all volunteer assignments
-router.get('/volunteers', adminController.getVolunteers);
-
-// Route to update volunteer presence
-router.patch('/update-volunteer-presence', adminController.updateVolunteerPresence);
 
 module.exports = router;
