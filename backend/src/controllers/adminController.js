@@ -56,22 +56,30 @@ exports.createRoom = async (req, res) => {
   }
 };
 
-// Get rooms by block
+// Get rooms by block with occupancy data
 exports.getRooms = async (req, res) => {
   const { block } = req.query;
 
   try {
+    // Fetch rooms
     let query = supabase.from('room_allocations').select('*');
-    
     if (block) {
       query = query.eq('block', block);
     }
+    const { data: rooms, error: roomsError } = await query.order('room_name', { ascending: true });
+    if (roomsError) throw roomsError;
 
-    const { data, error } = await query.order('room_name', { ascending: true });
+    // Fetch all teams to calculate occupancy
+    const { data: teams, error: teamsError } = await supabase.from('teams').select('allocated_room');
+    if (teamsError) throw teamsError;
 
-    if (error) throw error;
+    // Calculate occupancy for each room
+    const roomsWithOccupancy = rooms.map(room => {
+      const occupied = teams.filter(team => team.allocated_room === room.room_name).length;
+      return { ...room, occupied };
+    });
 
-    res.status(200).json(data);
+    res.status(200).json(roomsWithOccupancy);
   } catch (error) {
     console.error('Error fetching rooms:', error);
     res.status(500).json({ error: error.message });
