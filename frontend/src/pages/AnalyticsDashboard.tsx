@@ -18,9 +18,6 @@ const AnalyticsDashboard = () => {
   const [activeTab, setActiveTab] = useState<'participants' | 'idcards'>('participants');
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'present' | 'absent' | 'issued' | 'not_issued'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | null }>({ message: '', type: null });
 
   useEffect(() => {
@@ -33,27 +30,13 @@ const AnalyticsDashboard = () => {
     fetchTeams();
 
     // Real-time subscription
-    const channel = supabase
-      .channel('analytics_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
         fetchTeams();
-      })
+    // Real-time subscription
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [navigate]);
-
-  const fetchTeams = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select('*')
-        .order('team_id', { ascending: true });
-
-      if (error) throw error;
-      setTeams(data || []);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
+        fetchTeams();
     } catch (err) {
       console.error('Error fetching teams:', err);
     } finally {
@@ -66,12 +49,11 @@ const AnalyticsDashboard = () => {
     setTimeout(() => setNotification({ message: '', type: null }), 3000);
   };
 
-  const togglePresence = async (teamId: number, currentStatus: boolean) => {
+        .select('*')
     setUpdatingId(teamId);
     try {
       const { error } = await supabase
         .from('teams')
-        .update({ leader_present: !currentStatus })
         .eq('team_id', teamId);
       if (error) throw error;
       showSuccess(`Team #${teamId} marked as ${!currentStatus ? 'Present' : 'Absent'} successfully!`);

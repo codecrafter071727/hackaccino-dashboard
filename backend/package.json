@@ -4,10 +4,7 @@
   "description": "Backend scripts for Hackaccino Dashboard",
   "main": "importData.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "import": "node importData.js",
-    "check-db": "node check_db.js"
+    "start": "node importData.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

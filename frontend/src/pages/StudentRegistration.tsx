@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../config';
 import { supabase } from '../supabaseClient';
 
 interface TeamMember {
@@ -60,14 +59,17 @@ const StudentRegistration: React.FC = () => {
     setLoading(true);
     try {
       const url = query 
-        ? `${API_BASE_URL}/api/teams?query=${encodeURIComponent(query)}`
-        : `${API_BASE_URL}/api/teams`;
+        ? `https://hackaccino-dashboard.onrender.com/api/teams?query=${encodeURIComponent(query)}&limit=100`
+        : 'https://hackaccino-dashboard.onrender.com/api/teams?limit=100';
       
       const response = await fetch(url);
-      const data = await response.json();
+      const result = await response.json();
       
-      if (Array.isArray(data)) {
-        setTeams(data);
+      if (result && Array.isArray(result.data)) {
+        setTeams(result.data);
+      } else if (Array.isArray(result)) {
+        // Fallback for old API format if needed
+        setTeams(result);
       } else {
         setTeams([]);
       }
@@ -154,7 +156,7 @@ const StudentRegistration: React.FC = () => {
 
     setUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams/${selectedTeam.team_id}`, {
+      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/teams/${selectedTeam.team_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -207,6 +209,12 @@ const StudentRegistration: React.FC = () => {
             <span className="text-sm bg-college-secondary text-college-primary px-2 py-1 rounded font-semibold">REGISTRATION</span>
           </div>
           <div className="flex items-center space-x-4">
+             <button 
+              onClick={() => navigate('/judges-portal')}
+              className="text-sm bg-college-secondary hover:bg-college-secondary/80 text-college-primary px-4 py-2 rounded-lg transition-colors font-bold shadow-sm hidden md:block"
+            >
+              Judges Portal
+            </button>
              <button 
               onClick={() => navigate('/admin/login')}
               className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors border border-white/20 hidden md:block"
