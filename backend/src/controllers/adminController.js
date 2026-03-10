@@ -3,28 +3,24 @@ const supabase = require('../config/supabaseClient');
 
 // Create a new staff assignment
 exports.assignRole = async (req, res) => {
-  const { email, password, duty } = req.body;
+  const { email, duty } = req.body;
 
-  if (!email || !password || !duty) {
-    return res.status(400).json({ error: 'Email, password, and duty are required.' });
+  if (!email || !duty) {
+    return res.status(400).json({ error: 'Email and duty are required.' });
   }
 
   try {
     const { data, error } = await supabase
       .from('staff_assignments')
-      .insert([
-        { email, password, duty }
-      ])
+      .upsert(
+        { email, duty, password: 'google-auth-only' },
+        { onConflict: 'email' }
+      )
       .select();
 
-    if (error) {
-        if (error.code === '23505') { // Unique violation code for Postgres
-            return res.status(409).json({ error: 'A user with this email already exists.' });
-        }
-        throw error;
-    }
+    if (error) throw error;
 
-    res.status(201).json({ message: 'Role assigned successfully', data });
+    res.status(201).json({ message: 'Role assigned/updated successfully', data });
   } catch (error) {
     console.error('Error assigning role:', error);
     res.status(500).json({ error: error.message });
@@ -81,34 +77,6 @@ exports.staffLogin = async (req, res) => {
   }
 };
 
-// Add a judge
-exports.addJudge = async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required.' });
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('allowed_judges')
-      .insert([{ email }])
-      .select();
-
-    if (error) {
-      if (error.code === '23505') {
-        return res.status(409).json({ error: 'This judge email is already registered.' });
-      }
-      throw error;
-    }
-
-    res.status(201).json({ message: 'Judge added successfully', data });
-  } catch (error) {
-    console.error('Error adding judge:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
 // Create a room
 exports.createRoom = async (req, res) => {
   const { block, room_name, capacity } = req.body;
@@ -133,6 +101,26 @@ exports.createRoom = async (req, res) => {
   }
 };
 
+// Get all rooms (optionally filtered by block)
+exports.getRooms = async (req, res) => {
+    const { block } = req.query;
+    try {
+        let query = supabase.from('rooms').select('*').order('room_name');
+        
+        if (block) {
+            query = query.eq('block', block);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('Error fetching rooms:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Assign volunteer to room
 exports.assignVolunteerRoom = async (req, res) => {
   const { name, phone_no, room_no, time_slot } = req.body;
@@ -153,6 +141,45 @@ exports.assignVolunteerRoom = async (req, res) => {
     res.status(201).json({ message: 'Volunteer assigned successfully', data });
   } catch (error) {
     console.error('Error assigning volunteer:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get all volunteers
+exports.getVolunteers = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('volunteer_assignments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error fetching volunteers:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update volunteer presence
+exports.updateVolunteerPresence = async (req, res) => {
+  const { id, is_present } = req.body;
+
+  if (id === undefined || is_present === undefined) {
+    return res.status(400).json({ error: 'ID and is_present status are required.' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('volunteer_assignments')
+      .update({ is_present })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.status(200).json({ message: 'Presence updated successfully', data });
+  } catch (error) {
+    console.error('Error updating presence:', error);
     res.status(500).json({ error: error.message });
   }
 };

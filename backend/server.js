@@ -19,6 +19,14 @@ app.get('/', (req, res) => {
   res.send('Hackaccino Dashboard API is running...');
 });
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error'
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
