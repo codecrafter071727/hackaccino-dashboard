@@ -10,10 +10,19 @@ const AdminDashboard = () => {
   // Role Assignment Modal State
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [duty, setDuty] = useState('Registration');
+  const [selectedDuties, setSelectedDuties] = useState<string[]>(['Registration']);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' });
+
+  const availableDuties = ['Registration', 'Room Allocation', 'PCO Assignment'];
+
+  const toggleDuty = (dutyName: string) => {
+    setSelectedDuties(prev => 
+      prev.includes(dutyName) 
+        ? prev.filter(d => d !== dutyName) 
+        : [...prev, dutyName]
+    );
+  };
 
   // Room Allocation Modal State
   const [showRoomModal, setShowRoomModal] = useState(false);
@@ -29,11 +38,6 @@ const AdminDashboard = () => {
   const [volunteerRoom, setVolunteerRoom] = useState('');
   const [volunteerTime, setVolunteerTime] = useState('');
   const [volunteerMessage, setVolunteerMessage] = useState<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' });
-
-  // Judges Access Modal State
-  const [showJudgeModal, setShowJudgeModal] = useState(false);
-  const [judgeEmail, setJudgeEmail] = useState('');
-  const [judgeMessage, setJudgeMessage] = useState<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' });
 
   // System Analytics State
   const [showStatsModal, setShowStatsModal] = useState(false);
@@ -68,26 +72,32 @@ const AdminDashboard = () => {
       const response = await fetch(`${API_BASE_URL}/api/admin/assign-role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, duty }),
+        body: JSON.stringify({ email, duty: selectedDuties.join(', ') }),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Role assigned successfully!' });
+        setMessage({ type: 'success', text: 'Roles assigned successfully!' });
         setEmail('');
-        setPassword('');
-        setDuty('Registration');
+        setSelectedDuties(['Registration']);
         setTimeout(() => {
              setShowRoleModal(false);
              setMessage({ type: '', text: '' });
         }, 1500);
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to assign role' });
+        setMessage({ type: 'error', text: data.error || 'Failed to assign roles' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error assigning role:', error);
-      setMessage({ type: 'error', text: 'Network error. Ensure backend is running.' });
+      setMessage({ type: 'error', text: `Error: ${error.message || 'Network error. Ensure backend is running.'}` });
     } finally {
       setLoading(false);
     }
@@ -105,7 +115,14 @@ const AdminDashboard = () => {
         body: JSON.stringify({ block, room_name: roomName, capacity }),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
 
       if (response.ok) {
         setRoomMessage({ type: 'success', text: 'Room created successfully!' });
@@ -119,9 +136,9 @@ const AdminDashboard = () => {
       } else {
         setRoomMessage({ type: 'error', text: data.error || 'Failed to create room' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating room:', error);
-      setRoomMessage({ type: 'error', text: 'Network error. Ensure backend is running.' });
+      setRoomMessage({ type: 'error', text: `Error: ${error.message || 'Network error. Ensure backend is running.'}` });
     } finally {
       setLoading(false);
     }
@@ -144,7 +161,14 @@ const AdminDashboard = () => {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
 
       if (response.ok) {
         setVolunteerMessage({ type: 'success', text: 'Volunteer room allocated successfully!' });
@@ -159,41 +183,9 @@ const AdminDashboard = () => {
       } else {
         setVolunteerMessage({ type: 'error', text: data.error || 'Failed to allocate room' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error allocating volunteer room:', error);
-      setVolunteerMessage({ type: 'error', text: 'Network error. Ensure backend is running.' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddJudge = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setJudgeMessage({ type: '', text: '' });
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/add-judge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: judgeEmail }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setJudgeMessage({ type: 'success', text: 'Judge access granted successfully!' });
-        setJudgeEmail('');
-        setTimeout(() => {
-          setShowJudgeModal(false);
-          setJudgeMessage({ type: '', text: '' });
-        }, 1500);
-      } else {
-        setJudgeMessage({ type: 'error', text: data.error || 'Failed to grant access' });
-      }
-    } catch (error) {
-      console.error('Error adding judge:', error);
-      setJudgeMessage({ type: 'error', text: 'Network error. Ensure backend is running.' });
+      setVolunteerMessage({ type: 'error', text: `Error: ${error.message || 'Network error. Ensure backend is running.'}` });
     } finally {
       setLoading(false);
     }
@@ -306,28 +298,6 @@ const AdminDashboard = () => {
             </button>
           </div>
 
-          {/* Judges Access Card */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="p-3 bg-green-500/20 rounded-xl text-green-400 group-hover:bg-green-500/30 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <span className="text-xs font-medium text-gray-400 bg-white/5 px-2 py-1 rounded-full">Judges</span>
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Judges Access</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Manage email addresses that have access to the Judges Portal.
-            </p>
-            <button 
-              onClick={() => setShowJudgeModal(true)}
-              className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition-colors cursor-pointer"
-            >
-              Manage Judges →
-            </button>
-          </div>
-
           {/* Volunteer Room Allocation Card */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
             <div className="flex justify-between items-start mb-4">
@@ -389,35 +359,29 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 ml-1">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 ml-1">Duty Assignment</label>
-                <div className="relative">
-                  <select
-                    value={duty}
-                    onChange={(e) => setDuty(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all cursor-pointer"
-                  >
-                    <option value="Registration" className="bg-gray-900">Registration</option>
-                    <option value="Room Allocation" className="bg-gray-900">Room Allocation</option>
-                    <option value="PCO Assignment" className="bg-gray-900">PCO Assignment</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </div>
+              <div className="space-y-3">
+                <label className="text-sm text-gray-400 ml-1 block">Duty Assignments (Select multiple)</label>
+                <div className="grid grid-cols-1 gap-2">
+                  {availableDuties.map((dutyName) => (
+                    <label 
+                      key={dutyName}
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        selectedDuties.includes(dutyName) 
+                          ? 'bg-purple-500/20 border-purple-500/50 text-white' 
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedDuties.includes(dutyName)}
+                          onChange={() => toggleDuty(dutyName)}
+                          className="w-5 h-5 rounded border-white/10 bg-white/5 text-purple-600 focus:ring-purple-500/50 transition-all cursor-pointer"
+                        />
+                      </div>
+                      <span className="font-medium">{dutyName}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -652,57 +616,6 @@ const AdminDashboard = () => {
                       className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                     >
                       {loading ? 'Allocating...' : 'Allocate Room'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Judges Access Modal */}
-        {showJudgeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowJudgeModal(false)}></div>
-            <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md relative z-10 overflow-hidden">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold mb-6">Manage Judges Access</h2>
-                <form onSubmit={handleAddJudge} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Judge Gmail Address</label>
-                    <input 
-                      type="email" 
-                      value={judgeEmail}
-                      onChange={(e) => setJudgeEmail(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-green-500 transition-colors"
-                      placeholder="example@gmail.com"
-                      required
-                    />
-                    <p className="mt-2 text-xs text-gray-500">
-                      Enter the Google email address that the judge will use to sign in.
-                    </p>
-                  </div>
-
-                  {judgeMessage.text && (
-                    <div className={`p-3 rounded-lg text-sm ${judgeMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
-                      {judgeMessage.text}
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 mt-6">
-                    <button 
-                      type="button"
-                      onClick={() => setShowJudgeModal(false)}
-                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit"
-                      disabled={loading}
-                      className="flex-1 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                    >
-                      {loading ? 'Adding...' : 'Grant Access'}
                     </button>
                   </div>
                 </form>

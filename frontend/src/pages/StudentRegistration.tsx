@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { API_BASE_URL } from '../config';
 
 interface TeamMember {
   name: string;
@@ -19,7 +20,7 @@ interface Team {
   allocated_room?: string;
 }
 
-const StudentRegistration: React.FC = () => {
+const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,32 +39,43 @@ const StudentRegistration: React.FC = () => {
   useEffect(() => {
     const storedUser = localStorage.getItem('staffUser');
     if (!storedUser) {
-      alert('Access Denied: You must be logged in to view this page.');
-      navigate('/');
+      if (!isModal) {
+        alert('Access Denied: You must be logged in to view this page.');
+        navigate('/');
+      }
       return;
     }
     
     try {
       const user = JSON.parse(storedUser);
-      if (user.duty !== 'Registration') {
-        alert('Access Denied: Your assigned duty does not permit access to this page.');
+      const userDuties = user.duties || [user.duty];
+      if (!userDuties.includes('Registration') && !isModal) {
+        alert('Access Denied: Your assigned duties do not permit access to this page.');
         navigate('/');
       }
     } catch (e) {
       localStorage.removeItem('staffUser');
-      navigate('/');
+      if (!isModal) navigate('/');
     }
-  }, [navigate]);
+  }, [navigate, isModal]);
 
   const fetchTeams = async (query: string = '') => {
     setLoading(true);
     try {
       const url = query 
-        ? `https://hackaccino-dashboard.onrender.com/api/teams?query=${encodeURIComponent(query)}&limit=100`
-        : 'https://hackaccino-dashboard.onrender.com/api/teams?limit=100';
+        ? `${API_BASE_URL}/api/teams?query=${encodeURIComponent(query)}&limit=100`
+        : `${API_BASE_URL}/api/teams?limit=100`;
       
       const response = await fetch(url);
-      const result = await response.json();
+      
+      let result;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
       
       if (result && Array.isArray(result.data)) {
         setTeams(result.data);
@@ -73,8 +85,9 @@ const StudentRegistration: React.FC = () => {
       } else {
         setTeams([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching teams:', error);
+      alert(`Error fetching teams: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -156,7 +169,7 @@ const StudentRegistration: React.FC = () => {
 
     setUpdating(true);
     try {
-      const response = await fetch(`https://hackaccino-dashboard.onrender.com/api/teams/${selectedTeam.team_id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/teams/${selectedTeam.team_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -168,79 +181,91 @@ const StudentRegistration: React.FC = () => {
         }),
       });
 
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
+
       if (response.ok) {
-        const updatedTeam = await response.json();
-        
         // Update local state
-        setTeams(teams.map(t => t.team_id === updatedTeam.team_id ? updatedTeam : t));
+        setTeams(teams.map(t => t.team_id === data.team_id ? data : t));
         setSelectedTeam(null); // Close modal
         alert('Team updated successfully!');
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Update failed:', errorData);
+        console.error('Update failed:', data);
         
         // Detailed error handling for users
-        if (errorData.error && errorData.error.includes('does not exist')) {
-          alert(`Database Error: The database schema is outdated.\n\nPlease run the SQL script provided in 'backend/schema.sql' to add the missing columns (leader_present, etc.).\n\nTechnical Error: ${errorData.error}`);
+        if (data.error && data.error.includes('does not exist')) {
+          alert(`Database Error: The database schema is outdated.\n\nPlease run the SQL script provided in 'backend/schema.sql' to add the missing columns (leader_present, etc.).\n\nTechnical Error: ${data.error}`);
         } else {
-          alert(`Failed to update team: ${errorData.error || response.statusText}`);
+          alert(`Failed to update team: ${data.error || response.statusText}`);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating team:', error);
-      alert('Error updating team.');
+      alert(`Error updating team: ${error.message || 'Network error'}`);
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('staffUser');
-    navigate('/');
+  const handleLogout = async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await supabase.auth.signOut({ scope: 'local' });
+    window.location.replace('/');
   };
 
   return (
-    <div className="min-h-screen bg-college-bg font-sans flex flex-col">
-       {/* Navbar */}
-       <nav className="bg-college-primary text-white shadow-lg">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-            <span className="text-2xl font-bold tracking-wider">HACKACCINO</span>
-            <span className="text-sm bg-college-secondary text-college-primary px-2 py-1 rounded font-semibold">REGISTRATION</span>
+    <div className={`min-h-screen ${isModal ? 'bg-transparent' : 'bg-college-bg'} font-sans flex flex-col`}>
+      {/* Navbar - Hide if in modal */}
+      {!isModal && (
+        <nav className="bg-college-primary text-white shadow-lg">
+          <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
+              <span className="text-2xl font-bold tracking-wider">HACKACCINO</span>
+              <span className="text-sm bg-college-secondary text-college-primary px-2 py-1 rounded font-semibold">REGISTRATION</span>
+            </div>
+            <div className="flex items-center space-x-4">
+               <button 
+                onClick={() => navigate('/judges-portal')}
+                className="text-sm bg-college-secondary hover:bg-college-secondary/80 text-college-primary px-4 py-2 rounded-lg transition-colors font-bold shadow-sm hidden md:block"
+              >
+                Judges Portal
+              </button>
+               <button 
+                onClick={() => navigate('/admin/login')}
+                className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors border border-white/20 hidden md:block"
+              >
+                Superadmin
+              </button>
+              <button 
+                onClick={() => navigate('/')}
+                className="text-sm hover:text-college-secondary transition-colors"
+              >
+                Back to Dashboard
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="text-sm bg-red-500/20 hover:bg-red-500/40 text-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-500/30"
+              >
+                Logout
+              </button>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-             <button 
-              onClick={() => navigate('/judges-portal')}
-              className="text-sm bg-college-secondary hover:bg-college-secondary/80 text-college-primary px-4 py-2 rounded-lg transition-colors font-bold shadow-sm hidden md:block"
-            >
-              Judges Portal
-            </button>
-             <button 
-              onClick={() => navigate('/admin/login')}
-              className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors border border-white/20 hidden md:block"
-            >
-              Superadmin
-            </button>
-            <button 
-              onClick={() => navigate('/')}
-              className="text-sm hover:text-college-secondary transition-colors"
-            >
-              Back to Dashboard
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="text-sm bg-red-500/20 hover:bg-red-500/40 text-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-500/30"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
-      <div className="container mx-auto p-8 flex-grow">
-        <h1 className="text-3xl font-bold text-college-text mb-8 border-b-4 border-college-secondary inline-block pb-2">
-          Student Registration
-        </h1>
+      <div className={`container mx-auto p-8 flex-grow ${isModal ? 'text-white' : ''}`}>
+        {!isModal && (
+          <h1 className={`text-3xl font-bold ${isModal ? 'text-white' : 'text-college-text'} mb-8 border-b-4 border-college-secondary inline-block pb-2`}>
+            Student Registration
+          </h1>
+        )}
 
         {/* Search Bar */}
         <div className="mb-8">
@@ -250,7 +275,7 @@ const StudentRegistration: React.FC = () => {
               placeholder="Search by Team Leader, Email, or Phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-college-primary shadow-sm"
+              className={`flex-1 p-3 border-2 rounded-lg focus:outline-none focus:border-college-primary shadow-sm ${isModal ? 'bg-white/5 border-white/10 text-white placeholder-white/30' : 'border-gray-300'}`}
             />
             <button
               type="submit"
@@ -270,7 +295,7 @@ const StudentRegistration: React.FC = () => {
               <div 
                 key={team.team_id} 
                 onClick={() => handleCardClick(team)}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer border border-gray-100 group"
+                className={`${isModal ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'} rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer border group`}
               >
                 <div className="bg-college-primary p-4 flex justify-between items-center">
                   <span className="text-white font-bold text-lg">Team #{team.team_id}</span>
@@ -282,20 +307,20 @@ const StudentRegistration: React.FC = () => {
                 </div>
                 <div className="p-6">
                   <div className="mb-4">
-                    <p className="text-sm text-gray-500 uppercase tracking-wider font-semibold">Team Leader</p>
-                    <p className="text-xl font-bold text-gray-800 group-hover:text-college-primary transition-colors">{team.team_leader_name}</p>
+                    <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'} uppercase tracking-wider font-semibold`}>Team Leader</p>
+                    <p className={`text-xl font-bold ${isModal ? 'text-white group-hover:text-neon-green' : 'text-gray-800 group-hover:text-college-primary'} transition-colors`}>{team.team_leader_name}</p>
                   </div>
                   <div className="mb-2">
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="text-gray-700 truncate">{team.registered_email}</p>
+                    <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Email</p>
+                    <p className={`${isModal ? 'text-white/80' : 'text-gray-700'} truncate`}>{team.registered_email}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="text-gray-700">{team.registered_phone}</p>
+                    <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Phone</p>
+                    <p className={isModal ? 'text-white/80' : 'text-gray-700'}>{team.registered_phone}</p>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between text-sm text-gray-500">
+                  <div className={`mt-4 pt-4 border-t ${isModal ? 'border-white/5' : 'border-gray-100'} flex justify-between text-sm ${isModal ? 'text-white/40' : 'text-gray-500'}`}>
                      <span>{team.team_members ? team.team_members.length : 0} Members</span>
-                     <span className="text-college-secondary font-semibold group-hover:underline">View Details →</span>
+                     <span className={`${isModal ? 'text-neon-green' : 'text-college-secondary'} font-semibold group-hover:underline`}>View Details →</span>
                   </div>
                 </div>
               </div>
@@ -305,8 +330,8 @@ const StudentRegistration: React.FC = () => {
 
         {/* Detailed Modal */}
         {selectedTeam && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+            <div className={`${isModal ? 'bg-[#121212] border border-white/10' : 'bg-white'} rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col`}>
               <div className="bg-college-primary p-6 flex justify-between items-center sticky top-0 z-10">
                 <h2 className="text-2xl font-bold text-white">Team #{selectedTeam.team_id} Details</h2>
                 <button 
@@ -320,13 +345,13 @@ const StudentRegistration: React.FC = () => {
               <div className="p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                   <div>
-                     <h3 className="text-lg font-bold text-gray-700 mb-2">Contact Info</h3>
-                     <p className="text-gray-600"><span className="font-semibold">Email:</span> {selectedTeam.registered_email}</p>
-                     <p className="text-gray-600"><span className="font-semibold">Phone:</span> {selectedTeam.registered_phone}</p>
-                     <p className="text-gray-600 mt-2">
+                     <h3 className={`text-lg font-bold ${isModal ? 'text-white' : 'text-gray-700'} mb-2`}>Contact Info</h3>
+                     <p className={isModal ? 'text-white/70' : 'text-gray-600'}><span className="font-semibold">Email:</span> {selectedTeam.registered_email}</p>
+                     <p className={isModal ? 'text-white/70' : 'text-gray-600'}><span className="font-semibold">Phone:</span> {selectedTeam.registered_phone}</p>
+                     <p className={`${isModal ? 'text-white/70' : 'text-gray-600'} mt-2`}>
                         <span className="font-semibold">Allocated Room:</span> 
                         {selectedTeam.allocated_room ? (
-                            <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold border border-purple-200">
+                            <span className={`ml-2 px-2 py-0.5 rounded font-bold border ${isModal ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-purple-100 text-purple-700 border-purple-200'}`}>
                                 {selectedTeam.allocated_room}
                             </span>
                         ) : (
@@ -345,59 +370,59 @@ const StudentRegistration: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto border rounded-lg shadow-sm">
+                <div className={`overflow-x-auto border rounded-lg shadow-sm ${isModal ? 'border-white/10' : 'border-gray-200'}`}>
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-100 border-b border-gray-200">
-                        <th className="p-4 font-bold text-gray-700">Role</th>
-                        <th className="p-4 font-bold text-gray-700">Name</th>
-                        <th className="p-4 font-bold text-center text-gray-700">Present?</th>
-                        <th className="p-4 font-bold text-center text-gray-700">ID Issued?</th>
+                      <tr className={`${isModal ? 'bg-white/5 border-white/5' : 'bg-gray-100 border-gray-200'} border-b`}>
+                        <th className={`p-4 font-bold ${isModal ? 'text-white/60' : 'text-gray-700'}`}>Role</th>
+                        <th className={`p-4 font-bold ${isModal ? 'text-white/60' : 'text-gray-700'}`}>Name</th>
+                        <th className={`p-4 font-bold text-center ${isModal ? 'text-white/60' : 'text-gray-700'}`}>Present?</th>
+                        <th className={`p-4 font-bold text-center ${isModal ? 'text-white/60' : 'text-gray-700'}`}>ID Issued?</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className={`divide-y ${isModal ? 'divide-white/5' : 'divide-gray-100'}`}>
                       {/* Leader Row */}
-                      <tr className="hover:bg-gray-50 transition">
-                        <td className="p-4 text-college-primary font-bold">Leader</td>
-                        <td className="p-4 font-medium text-gray-800">{selectedTeam.team_leader_name}</td>
+                      <tr className={`${isModal ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'} transition`}>
+                        <td className={`p-4 ${isModal ? 'text-neon-green' : 'text-college-primary'} font-bold`}>Leader</td>
+                        <td className={`p-4 font-medium ${isModal ? 'text-white' : 'text-gray-800'}`}>{selectedTeam.team_leader_name}</td>
                         <td className="p-4 text-center">
                           <input 
                             type="checkbox" 
                             checked={editLeaderPresent} 
                             onChange={(e) => setEditLeaderPresent(e.target.checked)}
-                            className="w-5 h-5 text-college-primary rounded focus:ring-college-primary cursor-pointer"
-                          />
+                            className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
+                           />
                         </td>
                         <td className="p-4 text-center">
                           <input 
                             type="checkbox" 
                             checked={editLeaderId} 
                             onChange={(e) => setEditLeaderId(e.target.checked)}
-                            className="w-5 h-5 text-college-primary rounded focus:ring-college-primary cursor-pointer"
-                          />
+                            className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
+                           />
                         </td>
                       </tr>
 
                       {/* Members Rows */}
                       {editMembers.map((member, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition">
-                          <td className="p-4 text-gray-500">Member</td>
-                          <td className="p-4 text-gray-800">{member.name}</td>
+                        <tr key={index} className={`${isModal ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'} transition`}>
+                          <td className={`p-4 ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Member</td>
+                          <td className={`p-4 ${isModal ? 'text-white/80' : 'text-gray-800'}`}>{member.name}</td>
                           <td className="p-4 text-center">
                             <input 
                               type="checkbox" 
                               checked={member.is_present} 
                               onChange={(e) => handleMemberChange(index, 'is_present', e.target.checked)}
-                              className="w-5 h-5 text-college-primary rounded focus:ring-college-primary cursor-pointer"
-                            />
-                          </td>
-                          <td className="p-4 text-center">
-                            <input 
-                              type="checkbox" 
-                              checked={member.id_card_issued} 
-                              onChange={(e) => handleMemberChange(index, 'id_card_issued', e.target.checked)}
-                              className="w-5 h-5 text-college-primary rounded focus:ring-college-primary cursor-pointer"
-                            />
+                              className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
+                             />
+                        </td>
+                        <td className="p-4 text-center">
+                          <input 
+                            type="checkbox" 
+                            checked={member.id_card_issued} 
+                            onChange={(e) => handleMemberChange(index, 'id_card_issued', e.target.checked)}
+                            className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
+                           />
                           </td>
                         </tr>
                       ))}
@@ -410,9 +435,11 @@ const StudentRegistration: React.FC = () => {
         )}
       </div>
 
-      <footer className="bg-gray-800 text-gray-400 p-6 text-center mt-auto">
-        <p>&copy; 2025 University Dashboard. All rights reserved.</p>
-      </footer>
+      {!isModal && (
+        <footer className="bg-gray-800 text-gray-400 p-6 text-center mt-auto">
+          <p>&copy; 2025 University Dashboard. All rights reserved.</p>
+        </footer>
+      )}
     </div>
   );
 };

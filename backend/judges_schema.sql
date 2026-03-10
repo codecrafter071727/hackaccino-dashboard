@@ -1,6 +1,7 @@
 -- Table to store allowed judges' email addresses
 CREATE TABLE IF NOT EXISTS allowed_judges (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT DEFAULT 'Unknown' NOT NULL,
     email TEXT UNIQUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     added_by TEXT -- Optional: store which admin added this judge

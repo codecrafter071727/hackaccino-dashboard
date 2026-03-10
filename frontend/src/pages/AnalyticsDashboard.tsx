@@ -19,6 +19,25 @@ const AnalyticsDashboard = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | null }>({ message: '', type: null });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'present' | 'absent' | 'issued' | 'not_issued'>('all');
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+
+  const fetchTeams = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('*')
+        .order('team_id', { ascending: true });
+      
+      if (error) throw error;
+      setTeams(data || []);
+    } catch (err) {
+      console.error('Error fetching teams:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Auth check
@@ -27,34 +46,35 @@ const AnalyticsDashboard = () => {
       navigate('/admin/login');
       return;
     }
+    
     fetchTeams();
 
     // Real-time subscription
+    const subscription = supabase
+      .channel('teams_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
         fetchTeams();
-    // Real-time subscription
+      })
       .subscribe();
 
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        fetchTeams();
-    } catch (err) {
-      console.error('Error fetching teams:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [navigate]);
 
   const showSuccess = (msg: string) => {
     setNotification({ message: msg, type: 'success' });
     setTimeout(() => setNotification({ message: '', type: null }), 3000);
   };
 
-        .select('*')
+  const togglePresence = async (teamId: number, currentStatus: boolean) => {
     setUpdatingId(teamId);
     try {
       const { error } = await supabase
         .from('teams')
+        .update({ leader_present: !currentStatus })
         .eq('team_id', teamId);
+      
       if (error) throw error;
       showSuccess(`Team #${teamId} marked as ${!currentStatus ? 'Present' : 'Absent'} successfully!`);
     } catch (err) {
