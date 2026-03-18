@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { FaEnvelope } from 'react-icons/fa';
 import { HoverBorderGradient } from './ui/hover-border-gradient';
@@ -20,11 +20,21 @@ import { Spotlight } from "./ui/spotlight";
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
-import StudentRegistration from './pages/StudentRegistration';
-import RoomAllocation from './pages/RoomAllocation';
-import PCODuty from './pages/PCODuty';
 import ErrorBoundary from './components/ErrorBoundary';
 import { supabase } from './supabaseClient';
+
+// Lazy load feature components for performance
+const StudentRegistration = lazy(() => import('./pages/StudentRegistration'));
+const RoomAllocation = lazy(() => import('./pages/RoomAllocation'));
+const PCODuty = lazy(() => import('./pages/PCODuty'));
+
+// Loading component for Suspense
+const FeatureLoading = () => (
+  <div className="flex flex-col items-center justify-center p-20 gap-4">
+    <div className="w-12 h-12 border-4 border-neon-green/20 border-t-neon-green rounded-full animate-spin" />
+    <p className="text-gray-400 font-medium animate-pulse uppercase tracking-widest text-xs">Loading Module...</p>
+  </div>
+);
 
 // Modal Component for Feature Popups
 const FeatureModal = ({ 
@@ -97,44 +107,15 @@ function DashboardHome() {
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<any>(null);
+  const [loggedInUser, setLoggedInUser] = useState<{
+    email: string;
+    name: string;
+    duties: string[];
+    id: string;
+    duty?: string;
+  } | null>(null);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    const storedUser = localStorage.getItem('staffUser');
-    if (storedUser) {
-      try {
-        setLoggedInUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Invalid user data', error);
-        localStorage.removeItem('staffUser');
-      }
-    }
-
-    // Check Supabase session for Google Auth
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await verifyAndSetUser(session.user.email, session.user.user_metadata?.full_name);
-      }
-    };
-
-    checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await verifyAndSetUser(session.user.email, session.user.user_metadata?.full_name);
-      } else if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('staffUser');
-        setLoggedInUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const verifyAndSetUser = async (email: string | undefined, name: string | undefined) => {
+  const verifyAndSetUser = useCallback(async (email: string | undefined, name: string | undefined) => {
     if (!email) return;
 
     setLoading(true);
@@ -170,7 +151,7 @@ function DashboardHome() {
       const pendingFeature = targetFeature || sessionStorage.getItem('targetFeature');
       if (pendingFeature) {
         if (userObj.duties.includes(pendingFeature)) {
-          setActiveFeatureModal(pendingFeature as any);
+          setActiveFeatureModal(pendingFeature as 'Registration' | 'Room Allocation' | 'PCO Assignment');
         } else {
           // Stay on home but show error
           setError(`Access Denied! Your assigned duties are "${staffData.duty}", but you tried to access "${pendingFeature}".`);
@@ -184,7 +165,42 @@ function DashboardHome() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [targetFeature]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const storedUser = localStorage.getItem('staffUser');
+    if (storedUser) {
+      try {
+        setLoggedInUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error('Invalid user data', err);
+        localStorage.removeItem('staffUser');
+      }
+    }
+
+    // Check Supabase session for Google Auth
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await verifyAndSetUser(session.user.email, session.user.user_metadata?.full_name);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await verifyAndSetUser(session.user.email, session.user.user_metadata?.full_name);
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('staffUser');
+        setLoggedInUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [targetFeature, verifyAndSetUser]);
 
   const handleLogout = async () => {
     console.log("Starting ultimate logout...");
@@ -675,7 +691,9 @@ function DashboardHome() {
             onClose={() => setActiveFeatureModal(null)} 
             title="Student Registration"
           >
-            <StudentRegistration isModal={true} />
+            <Suspense fallback={<FeatureLoading />}>
+              <StudentRegistration isModal={true} />
+            </Suspense>
           </FeatureModal>
         )}
         
@@ -685,7 +703,9 @@ function DashboardHome() {
             onClose={() => setActiveFeatureModal(null)} 
             title="Room Allocation"
           >
-            <RoomAllocation isModal={true} />
+            <Suspense fallback={<FeatureLoading />}>
+              <RoomAllocation isModal={true} />
+            </Suspense>
           </FeatureModal>
         )}
         
@@ -695,7 +715,9 @@ function DashboardHome() {
             onClose={() => setActiveFeatureModal(null)} 
             title="PCO Duty Assignment"
           >
-            <PCODuty isModal={true} />
+            <Suspense fallback={<FeatureLoading />}>
+              <PCODuty isModal={true} />
+            </Suspense>
           </FeatureModal>
         )}
       </AnimatePresence>
