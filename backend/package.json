@@ -2,9 +2,9 @@
   "name": "hackaccino-backend",
   "version": "1.0.0",
   "description": "Backend scripts for Hackaccino Dashboard",
-  "main": "importData.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node importData.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
