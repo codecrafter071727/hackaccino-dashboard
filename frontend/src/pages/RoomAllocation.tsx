@@ -239,7 +239,15 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to assign room');
+        const errorMessage = errorData.message || errorData.error || 'Failed to assign room';
+        
+        // Show specific popup if room is full
+        if (errorMessage.includes('full') || response.status === 400) {
+          alert(`🚫 ROOM FULL: ${errorMessage}`);
+        } else {
+          alert(`Error: ${errorMessage}`);
+        }
+        throw new Error(errorMessage);
       }
 
       const contentType = response.headers.get('content-type');

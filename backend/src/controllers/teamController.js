@@ -52,7 +52,7 @@ const getTeams = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching teams:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 };
 
@@ -77,28 +77,62 @@ const updateTeamStatus = async (req, res) => {
     res.status(200).json(data[0]);
   } catch (error) {
     console.error('Error updating team status:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 };
 
-// Assign room to team
+// Assign room to team (Atomic with Capacity Check)
 const assignRoom = async (req, res) => {
   const { id } = req.params;
   const { room_name } = req.body;
 
+  if (!room_name) {
+    return res.status(400).json({ error: 'Room name is required.' });
+  }
+
   try {
-    const { data, error } = await supabase
+    // 1. Call atomic RPC to decrement capacity by 1 only if > 0
+    const { data: roomData, error: rpcError } = await supabase.rpc('decrement_room_capacity', { 
+      target_room_name: room_name 
+    });
+
+    if (rpcError) throw rpcError;
+
+    // 2. Check if room update was successful (if data is empty, room was full)
+    if (!roomData || roomData.length === 0) {
+      return res.status(400).json({ 
+        error: 'Room is full!', 
+        message: `The room "${room_name}" has reached its maximum capacity.` 
+      });
+    }
+
+    // 3. Assign room to team in the teams table
+    const { data: teamData, error: teamError } = await supabase
       .from('teams')
       .update({ allocated_room: room_name })
       .eq('team_id', id)
       .select();
 
-    if (error) throw error;
+    if (teamError) {
+      // Rollback: if team update fails, increment room capacity back
+      await supabase
+        .from('rooms')
+        .update({ capacity: roomData[0].capacity + 1 })
+        .eq('room_name', room_name);
+      throw teamError;
+    }
 
-    res.status(200).json(data[0]);
+    res.status(200).json({
+      message: 'Room assigned successfully',
+      team: teamData[0],
+      room: roomData[0]
+    });
   } catch (error) {
     console.error('Error assigning room:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message || 'Failed to assign room' 
+    });
   }
 };
 
