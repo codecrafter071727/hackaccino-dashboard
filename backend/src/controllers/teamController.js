@@ -9,13 +9,13 @@ const getTeams = async (req, res) => {
     // Optimization: Select only necessary fields
     let apiQuery = supabase
       .from('teams')
-      .select('team_id, team_leader_name, team_members, registered_email, registered_phone, leader_present, leader_id_issued, allocated_room', { count: 'exact' })
+      .select('team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room', { count: 'exact' })
       .order('team_id', { ascending: true });
 
     if (query) {
-      // Search in basic fields (team_leader_name, email, phone)
+      // Search in basic fields (team_name, team_leader_name, email, phone)
       // If query is a number, also search in team_id
-      let searchFilter = `team_leader_name.ilike.%${query}%,registered_email.ilike.%${query}%,registered_phone.ilike.%${query}%`;
+      let searchFilter = `team_name.ilike.%${query}%,team_leader_name.ilike.%${query}%,registered_email.ilike.%${query}%,registered_phone.ilike.%${query}%`;
       
       if (!isNaN(query)) {
         searchFilter += `,team_id.eq.${query}`;
@@ -56,19 +56,27 @@ const getTeams = async (req, res) => {
   }
 };
 
-// Update team status (leader and members)
+// Update team status (Unified team_members array)
 const updateTeamStatus = async (req, res) => {
   const { id } = req.params;
-  const { leader_present, leader_id_issued, team_members } = req.body;
+  const { team_members } = req.body; // Array containing everyone's status
 
   try {
+    // Logic: Auto-approve team if all members are present
+    const allPresent = team_members && team_members.length > 0 && team_members.every(m => m.is_present);
+    const updateData = { team_members };
+    
+    if (allPresent) {
+      updateData.team_status = 'Approved';
+    } else {
+      // Optional: Reset to Pending if someone is unmarked as present
+      // Only reset if it was previously Approved or is currently Pending
+      updateData.team_status = 'Pending';
+    }
+
     const { data, error } = await supabase
       .from('teams')
-      .update({ 
-        leader_present, 
-        leader_id_issued, 
-        team_members 
-      })
+      .update(updateData)
       .eq('team_id', id)
       .select();
 
@@ -81,7 +89,7 @@ const updateTeamStatus = async (req, res) => {
   }
 };
 
-// Assign room to team (Atomic with Capacity Check)
+// Assign room to team (Unified Atomic RPC)
 const assignRoom = async (req, res) => {
   const { id } = req.params;
   const { room_name } = req.body;
@@ -91,41 +99,27 @@ const assignRoom = async (req, res) => {
   }
 
   try {
-    // 1. Call atomic RPC to decrement capacity by 1 only if > 0
-    const { data: roomData, error: rpcError } = await supabase.rpc('decrement_room_capacity', { 
-      target_room_name: room_name 
+    // Call the single unified RPC function that handles everything
+    // It decrements capacity AND updates the team in ONE transaction
+    const { data: result, error: rpcError } = await supabase.rpc('allocate_room_atomic', { 
+      p_team_id: id,
+      p_room_name: room_name 
     });
 
     if (rpcError) throw rpcError;
 
-    // 2. Check if room update was successful (if data is empty, room was full)
-    if (!roomData || roomData.length === 0) {
+    // Check the result from the RPC
+    if (!result.success) {
       return res.status(400).json({ 
-        error: 'Room is full!', 
-        message: `The room "${room_name}" has reached its maximum capacity.` 
+        error: result.error, 
+        message: result.message 
       });
-    }
-
-    // 3. Assign room to team in the teams table
-    const { data: teamData, error: teamError } = await supabase
-      .from('teams')
-      .update({ allocated_room: room_name })
-      .eq('team_id', id)
-      .select();
-
-    if (teamError) {
-      // Rollback: if team update fails, increment room capacity back
-      await supabase
-        .from('rooms')
-        .update({ capacity: roomData[0].capacity + 1 })
-        .eq('room_name', room_name);
-      throw teamError;
     }
 
     res.status(200).json({
       message: 'Room assigned successfully',
-      team: teamData[0],
-      room: roomData[0]
+      team: result.team,
+      room: result.room
     });
   } catch (error) {
     console.error('Error assigning room:', error);
