@@ -1,4 +1,5 @@
-
+const fs = require('fs');
+const path = require('path');
 const supabase = require('../config/supabaseClient');
 
 // Create a new staff assignment
@@ -180,6 +181,81 @@ exports.updateVolunteerPresence = async (req, res) => {
     res.status(200).json({ message: 'Presence updated successfully', data });
   } catch (error) {
     console.error('Error updating presence:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Refresh teams from students-detail.json
+exports.refreshTeams = async (req, res) => {
+  try {
+    const jsonFilePath = path.join(__dirname, '../../students-detail.json');
+    
+    if (!fs.existsSync(jsonFilePath)) {
+      return res.status(404).json({ error: 'students-detail.json not found' });
+    }
+
+    console.log('Reading students-detail.json...');
+    const rawData = fs.readFileSync(jsonFilePath, 'utf8');
+    const teamsRaw = JSON.parse(rawData);
+
+    console.log(`Found ${teamsRaw.length} teams to import.`);
+
+    // 1. Delete existing data from teams table
+    const { error: deleteError } = await supabase
+      .from('teams')
+      .delete()
+      .neq('team_id', -1); // Delete all rows
+
+    if (deleteError) throw deleteError;
+
+    // 2. Transform and batch import
+    const teams = teamsRaw.map(team => {
+      // Parse members string into array of objects
+      const memberNames = team["Members Names"] ? team["Members Names"].split(',').map(n => n.trim()) : [];
+      const memberMails = team["Members Mail"] ? team["Members Mail"].split(',').map(m => m.trim()) : [];
+      
+      const team_members = memberNames.map((name, idx) => ({
+        name: name,
+        email: memberMails[idx] || '',
+        is_present: false,
+        id_card_issued: false
+      }));
+
+      return {
+        team_id: team["Team ID"],
+        team_name: team["Team Name"],
+        team_leader_name: team["Leader Name"],
+        registered_email: team["Leader Mail"],
+        registered_phone: team["Leader Phone"] || 'N/A', // Using N/A if not present in new JSON
+        leader_present: false,
+        leader_id_issued: false,
+        team_members: team_members,
+        total_members_count: parseInt(team["Total Members Count"] || "0"),
+        invite_status: team["Invite Status Summary"],
+        team_status: team["Team Status"],
+        mentors_assigned: team["Mentors Assigned"],
+        current_phase: team["Current Phase"],
+        created_at_json: team["Created At"]
+      };
+    });
+
+    // Import in batches
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < teams.length; i += BATCH_SIZE) {
+      const batch = teams.slice(i, i + BATCH_SIZE);
+      const { error: insertError } = await supabase
+        .from('teams')
+        .insert(batch);
+
+      if (insertError) throw insertError;
+    }
+
+    res.status(200).json({ 
+      message: 'Teams refreshed successfully', 
+      count: teams.length 
+    });
+  } catch (error) {
+    console.error('Error refreshing teams:', error);
     res.status(500).json({ error: error.message });
   }
 };

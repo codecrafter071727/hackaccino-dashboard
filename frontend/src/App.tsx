@@ -203,38 +203,23 @@ function DashboardHome() {
   }, [targetFeature, verifyAndSetUser]);
 
   const handleLogout = async () => {
-    console.log("Starting ultimate logout...");
+    // 1. Clear everything from storage first (Brute force)
+    localStorage.clear();
+    sessionStorage.clear();
+    
     try {
-      // 1. Clear Supabase session first
-      await supabase.auth.signOut({ scope: 'local' });
-      
-      // 2. Clear all storage types
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // 3. Clear all cookies (brute force)
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i];
-        const eqPos = cookie.indexOf("=");
-        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-      }
-
-      // 4. Reset React state
+      // 2. Try to tell Supabase we're signing out
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('SignOut error:', err);
+    } finally {
+      // 3. Clear any remaining local state
       setLoggedInUser(null);
       setActiveFeatureModal(null);
       setShowLoginModal(false);
 
-      console.log("Logout successful, redirecting...");
-      
-      // 5. Hard reload to root
-      window.location.replace('/');
-    } catch (err) {
-      console.error('Logout error:', err);
-      // Fallback: still clear everything and reload
-      localStorage.clear();
-      window.location.replace('/');
+      // 4. Force a complete page reload to the root URL
+      window.location.href = window.location.origin;
     }
   };
 

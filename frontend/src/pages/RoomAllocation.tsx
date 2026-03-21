@@ -241,27 +241,29 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.message || errorData.error || 'Failed to assign room';
         
-        // Show specific popup if room is full
+        // If room is full, refresh the room list immediately
         if (errorMessage.includes('full') || response.status === 400) {
-          alert(`🚫 ROOM FULL: ${errorMessage}`);
+          alert(`⚠️ ROOM ALLOCATION FAILED: ${errorMessage}`);
+          if (selectedBlock) fetchRooms(selectedBlock); // Refresh capacity display
         } else {
           alert(`Error: ${errorMessage}`);
         }
         throw new Error(errorMessage);
       }
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response.');
-      }
+      const result = await response.json();
 
-      // Update local state
+      // Update local state with the precise data from server
       const updatedTeams = allTeams.map(t => 
         t.team_id === team.team_id ? { ...t, allocated_room: selectedRoom.room_name } : t
       );
       setAllTeams(updatedTeams);
+      setFilteredTeams(updatedTeams.filter(t => filteredTeams.some(ft => ft.team_id === t.team_id)));
+
+      // Refresh the rooms list to show updated capacity for all rooms
+      if (selectedBlock) fetchRooms(selectedBlock);
       
-      alert(`Successfully assigned Team ${team.team_id} to ${selectedRoom.room_name}`);
+      alert(`✅ Success: Team ${team.team_id} assigned to ${selectedRoom.room_name}`);
     } catch (err: any) {
       alert(err.message || 'Failed to assign room. Please try again.');
       console.error(err);
@@ -285,10 +287,18 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   };
 
   const handleLogout = async () => {
+    // Brute force clear all storage
     localStorage.clear();
     sessionStorage.clear();
-    await supabase.auth.signOut({ scope: 'local' });
-    window.location.replace('/');
+    
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Force immediate redirect
+      window.location.href = window.location.origin;
+    }
   };
 
   const getMemberCount = (members: any) => {
@@ -434,12 +444,12 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                       <div className="flex flex-col">
-                        <span className={isModal ? 'text-white/60' : ''}>Capacity: <span className={`${isModal ? 'text-white' : 'text-gray-900'} font-bold`}>{room.capacity} Teams</span></span>
+                        <span className={isModal ? 'text-white/60' : ''}>Total Slots: <span className={`${isModal ? 'text-white' : 'text-gray-900'} font-bold`}>{room.capacity + (occupancyCounts[room.room_name] || 0)} Teams</span></span>
                         {occupancyCounts[room.room_name] !== undefined && (
                           <span className={`text-xs font-bold mt-1 ${
-                            (room.capacity - occupancyCounts[room.room_name]) > 0 ? 'text-green-500' : 'text-red-500'
+                            room.capacity > 0 ? 'text-green-500' : 'text-red-500'
                           }`}>
-                            Available: {Math.max(0, room.capacity - occupancyCounts[room.room_name])} Teams
+                            Available: {room.capacity} Teams
                           </span>
                         )}
                       </div>

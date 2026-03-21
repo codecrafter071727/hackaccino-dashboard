@@ -5,19 +5,24 @@ import { API_BASE_URL } from '../config';
 
 interface TeamMember {
   name: string;
+  email?: string;
+  role: 'Leader' | 'Member';
   is_present: boolean;
   id_card_issued: boolean;
 }
 
 interface Team {
-  team_id: number;
+  team_id: string;
+  team_name?: string;
   team_leader_name: string;
   team_members: TeamMember[];
   registered_email: string;
   registered_phone: string;
-  leader_present: boolean;
-  leader_id_issued: boolean;
   allocated_room?: string;
+  team_status?: string;
+  current_phase?: string;
+  invite_status?: string;
+  mentors_assigned?: string;
 }
 
 const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
@@ -26,9 +31,7 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [loading, setLoading] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   
-  // Edit state for the modal/table view
-  const [editLeaderPresent, setEditLeaderPresent] = useState(false);
-  const [editLeaderId, setEditLeaderId] = useState(false);
+  // Unified members state for the modal/table view
   const [editMembers, setEditMembers] = useState<TeamMember[]>([]);
   
   const [updating, setUpdating] = useState(false);
@@ -62,9 +65,11 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const fetchTeams = async (query: string = '') => {
     setLoading(true);
     try {
+      // Ensure no double slashes in URL
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
       const url = query 
-        ? `${API_BASE_URL}/api/teams?query=${encodeURIComponent(query)}&limit=100`
-        : `${API_BASE_URL}/api/teams?limit=100`;
+        ? `${baseUrl}/api/teams?query=${encodeURIComponent(query)}&limit=100`
+        : `${baseUrl}/api/teams?limit=100`;
       
       const response = await fetch(url);
       
@@ -143,19 +148,10 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
   const handleCardClick = (team: Team) => {
     setSelectedTeam(team);
-    setEditLeaderPresent(team.leader_present || false);
-    setEditLeaderId(team.leader_id_issued || false);
     
-    // Normalize members to handle both string array (legacy) and object array (new)
+    // Use unified team_members array from DB
     const members = team.team_members || [];
-    const normalizedMembers: TeamMember[] = members.map((m: any) => {
-      if (typeof m === 'string') {
-        return { name: m, is_present: false, id_card_issued: false };
-      }
-      return m;
-    });
-    
-    setEditMembers(normalizedMembers);
+    setEditMembers(members);
   };
 
   const handleMemberChange = (index: number, field: 'is_present' | 'id_card_issued', value: boolean) => {
@@ -175,8 +171,6 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          leader_present: editLeaderPresent,
-          leader_id_issued: editLeaderId,
           team_members: editMembers,
         }),
       });
@@ -214,10 +208,18 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   };
 
   const handleLogout = async () => {
+    // Brute force clear all storage
     localStorage.clear();
     sessionStorage.clear();
-    await supabase.auth.signOut({ scope: 'local' });
-    window.location.replace('/');
+    
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Force immediate redirect to origin
+      window.location.href = window.location.origin;
+    }
   };
 
   return (
@@ -272,7 +274,7 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
           <form onSubmit={handleSearch} className="flex gap-4 max-w-2xl">
             <input
               type="text"
-              placeholder="Search by Team Leader, Email, or Phone..."
+              placeholder="Search by Team Name, Leader, or Email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`flex-1 p-3 border-2 rounded-lg focus:outline-none focus:border-college-primary shadow-sm ${isModal ? 'bg-white/5 border-white/10 text-white placeholder-white/30' : 'border-gray-300'}`}
@@ -298,29 +300,96 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                 className={`${isModal ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'} rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer border group`}
               >
                 <div className="bg-college-primary p-4 flex justify-between items-center">
-                  <span className="text-white font-bold text-lg">Team #{team.team_id}</span>
-                  <div className="flex gap-2">
-                    {team.allocated_room && <span className="bg-purple-500 text-xs px-2 py-1 rounded-full text-white font-bold" title={`Room: ${team.allocated_room}`}>{team.allocated_room}</span>}
-                    {team.leader_present && <span className="bg-green-400 text-xs px-2 py-1 rounded-full text-white font-bold">P</span>}
-                    {team.leader_id_issued && <span className="bg-blue-400 text-xs px-2 py-1 rounded-full text-white font-bold">ID</span>}
+                  <span className="text-white font-bold text-lg truncate pr-2 max-w-[200px]" title={team.team_name || 'Unnamed Team'}>
+                    {team.team_name || 'Unnamed Team'}
+                  </span>
+                  <div className="flex gap-2 items-center">
+                    {team.allocated_room && (
+                      <span className="bg-purple-500/30 text-white text-[10px] px-2 py-1 rounded-md font-bold border border-white/20" title={`Room: ${team.allocated_room}`}>
+                        {team.allocated_room}
+                      </span>
+                    )}
+                    {/* Visual indicators for overall team status */}
+                    {team.team_members?.some(m => m.is_present) && (
+                      <span className="bg-green-500/30 text-green-300 text-[10px] px-2 py-1 rounded-md font-bold border border-green-500/30" title="Someone is present">
+                        P
+                      </span>
+                    )}
+                    {team.team_members?.every(m => m.id_card_issued) && (
+                      <span className="bg-blue-500/30 text-blue-300 text-[10px] px-2 py-1 rounded-md font-bold border border-blue-500/30" title="All IDs issued">
+                        ID
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="p-6">
-                  <div className="mb-4">
-                    <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'} uppercase tracking-wider font-semibold`}>Team Leader</p>
-                    <p className={`text-xl font-bold ${isModal ? 'text-white group-hover:text-neon-green' : 'text-gray-800 group-hover:text-college-primary'} transition-colors`}>{team.team_leader_name}</p>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <p className={`text-[10px] font-mono mb-1 ${isModal ? 'text-white/30' : 'text-gray-400'}`}>ID: #{team.team_id}</p>
+                      <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'} uppercase tracking-wider font-semibold`}>Team Leader</p>
+                      <p className={`text-xl font-bold ${isModal ? 'text-white group-hover:text-neon-green' : 'text-gray-800 group-hover:text-college-primary'} transition-colors`}>{team.team_leader_name}</p>
+                    </div>
+                    {team.team_status && (
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-tight border ${
+                        team.team_status === 'Approved' 
+                        ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                        : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                      }`}>
+                        {team.team_status}
+                      </span>
+                    )}
                   </div>
-                  <div className="mb-2">
-                    <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Email</p>
-                    <p className={`${isModal ? 'text-white/80' : 'text-gray-700'} truncate`}>{team.registered_email}</p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${isModal ? 'bg-white/5' : 'bg-gray-50'}`}>
+                        <svg className={`w-3.5 h-3.5 ${isModal ? 'text-white/40' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      </div>
+                      <p className={`text-xs truncate ${isModal ? 'text-white/60' : 'text-gray-600'}`}>{team.registered_email}</p>
+                    </div>
+
+                    {team.current_phase && (
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg ${isModal ? 'bg-white/5' : 'bg-gray-50'}`}>
+                          <svg className={`w-3.5 h-3.5 ${isModal ? 'text-white/40' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                        </div>
+                        <p className={`text-[10px] uppercase font-bold tracking-wider ${isModal ? 'text-white/40' : 'text-gray-400'}`}>{team.current_phase}</p>
+                      </div>
+                    )}
+
+                    {team.mentors_assigned && team.mentors_assigned !== 'N/A' && (
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg ${isModal ? 'bg-white/5' : 'bg-gray-50'}`}>
+                          <svg className={`w-3.5 h-3.5 ${isModal ? 'text-white/40' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        </div>
+                        <p className={`text-[10px] font-bold ${isModal ? 'text-neon-green/60' : 'text-college-primary/60'}`}>Mentor: {team.mentors_assigned}</p>
+                      </div>
+                    )}
+
+                    {team.invite_status && (
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg ${isModal ? 'bg-white/5' : 'bg-gray-50'}`}>
+                          <svg className={`w-3.5 h-3.5 ${isModal ? 'text-white/40' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                        <p className={`text-[10px] font-medium ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Invites: {team.invite_status}</p>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className={`text-sm ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Phone</p>
-                    <p className={isModal ? 'text-white/80' : 'text-gray-700'}>{team.registered_phone}</p>
-                  </div>
-                  <div className={`mt-4 pt-4 border-t ${isModal ? 'border-white/5' : 'border-gray-100'} flex justify-between text-sm ${isModal ? 'text-white/40' : 'text-gray-500'}`}>
-                     <span>{team.team_members ? team.team_members.length : 0} Members</span>
-                     <span className={`${isModal ? 'text-neon-green' : 'text-college-secondary'} font-semibold group-hover:underline`}>View Details →</span>
+
+                  <div className={`mt-5 pt-4 border-t ${isModal ? 'border-white/5' : 'border-gray-100'} flex justify-between items-center`}>
+                    <div className="flex -space-x-2 overflow-hidden">
+                      {team.team_members?.slice(0, 3).map((_, i) => (
+                        <div key={i} className={`inline-block h-6 w-6 rounded-full ring-2 ${isModal ? 'ring-[#1e1e1e] bg-white/10' : 'ring-white bg-gray-200'} flex items-center justify-center text-[10px] font-bold ${isModal ? 'text-white/40' : 'text-gray-500'}`}>
+                          {i + 1}
+                        </div>
+                      ))}
+                      {team.team_members && team.team_members.length > 3 && (
+                        <div className={`inline-block h-6 w-6 rounded-full ring-2 ${isModal ? 'ring-[#1e1e1e] bg-white/10' : 'ring-white bg-gray-300'} flex items-center justify-center text-[10px] font-bold ${isModal ? 'text-white/60' : 'text-gray-600'}`}>
+                          +{team.team_members.length - 3}
+                        </div>
+                      )}
+                    </div>
+                    <span className={`text-[11px] font-bold ${isModal ? 'text-neon-green/60' : 'text-college-primary/60'} uppercase tracking-widest group-hover:underline`}>Manage Details</span>
                   </div>
                 </div>
               </div>
@@ -346,6 +415,7 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                   <div>
                      <h3 className={`text-lg font-bold ${isModal ? 'text-white' : 'text-gray-700'} mb-2`}>Contact Info</h3>
+                     {selectedTeam.team_name && <p className={isModal ? 'text-neon-green font-bold mb-1' : 'text-college-primary font-bold mb-1'}>{selectedTeam.team_name}</p>}
                      <p className={isModal ? 'text-white/70' : 'text-gray-600'}><span className="font-semibold">Email:</span> {selectedTeam.registered_email}</p>
                      <p className={isModal ? 'text-white/70' : 'text-gray-600'}><span className="font-semibold">Phone:</span> {selectedTeam.registered_phone}</p>
                      <p className={`${isModal ? 'text-white/70' : 'text-gray-600'} mt-2`}>
@@ -358,6 +428,20 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                             <span className="ml-2 text-gray-400 italic">Not Assigned</span>
                         )}
                      </p>
+                     <div className="mt-3 flex gap-2 flex-wrap">
+                        {selectedTeam.team_status && (
+                          <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase ${
+                            selectedTeam.team_status === 'Approved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                          }`}>
+                            Status: {selectedTeam.team_status}
+                          </span>
+                        )}
+                        {selectedTeam.current_phase && (
+                          <span className="px-3 py-1 rounded-lg text-xs font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                            Phase: {selectedTeam.current_phase}
+                          </span>
+                        )}
+                     </div>
                   </div>
                   <div className="flex flex-col items-end justify-center">
                     <button 
@@ -381,33 +465,18 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                       </tr>
                     </thead>
                     <tbody className={`divide-y ${isModal ? 'divide-white/5' : 'divide-gray-100'}`}>
-                      {/* Leader Row */}
-                      <tr className={`${isModal ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'} transition`}>
-                        <td className={`p-4 ${isModal ? 'text-neon-green' : 'text-college-primary'} font-bold`}>Leader</td>
-                        <td className={`p-4 font-medium ${isModal ? 'text-white' : 'text-gray-800'}`}>{selectedTeam.team_leader_name}</td>
-                        <td className="p-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={editLeaderPresent} 
-                            onChange={(e) => setEditLeaderPresent(e.target.checked)}
-                            className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
-                           />
-                        </td>
-                        <td className="p-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={editLeaderId} 
-                            onChange={(e) => setEditLeaderId(e.target.checked)}
-                            className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
-                           />
-                        </td>
-                      </tr>
-
-                      {/* Members Rows */}
+                      {/* Unified Rows for Leader and Members */}
                       {editMembers.map((member, index) => (
                         <tr key={index} className={`${isModal ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'} transition`}>
-                          <td className={`p-4 ${isModal ? 'text-white/40' : 'text-gray-500'}`}>Member</td>
-                          <td className={`p-4 ${isModal ? 'text-white/80' : 'text-gray-800'}`}>{member.name}</td>
+                          <td className={`p-4 font-bold ${member.role === 'Leader' ? (isModal ? 'text-neon-green' : 'text-college-primary') : (isModal ? 'text-white/40' : 'text-gray-500')}`}>
+                            {member.role}
+                          </td>
+                          <td className={`p-4 font-medium ${isModal ? 'text-white' : 'text-gray-800'}`}>
+                            <div>
+                              {member.name}
+                              {member.email && <div className={`text-[10px] font-normal ${isModal ? 'text-white/40' : 'text-gray-400'}`}>{member.email}</div>}
+                            </div>
+                          </td>
                           <td className="p-4 text-center">
                             <input 
                               type="checkbox" 
@@ -415,14 +484,14 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                               onChange={(e) => handleMemberChange(index, 'is_present', e.target.checked)}
                               className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
                              />
-                        </td>
-                        <td className="p-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={member.id_card_issued} 
-                            onChange={(e) => handleMemberChange(index, 'id_card_issued', e.target.checked)}
-                            className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
-                           />
+                          </td>
+                          <td className="p-4 text-center">
+                            <input 
+                              type="checkbox" 
+                              checked={member.id_card_issued} 
+                              onChange={(e) => handleMemberChange(index, 'id_card_issued', e.target.checked)}
+                              className="w-5 h-5 text-neon-green/70 rounded focus:ring-neon-green/40 cursor-pointer bg-black/20 border-white/10 hover:border-neon-green/30 transition-all"
+                             />
                           </td>
                         </tr>
                       ))}

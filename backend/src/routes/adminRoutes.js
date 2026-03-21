@@ -27,4 +27,7 @@ router.get('/volunteers', adminController.getVolunteers);
 // Route to update volunteer presence
 router.patch('/update-volunteer-presence', adminController.updateVolunteerPresence);
 
+// Route to refresh teams data from JSON
+router.post('/refresh-teams', adminController.refreshTeams);
+
 module.exports = router;
