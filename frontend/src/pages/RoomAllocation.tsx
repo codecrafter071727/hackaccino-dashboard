@@ -251,7 +251,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      await response.json();
 
       // Update local state with the precise data from server
       const updatedTeams = allTeams.map(t => 
