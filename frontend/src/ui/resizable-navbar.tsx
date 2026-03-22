@@ -60,8 +60,8 @@ export const Navbar = ({
       >
         <div
           className={cn(
-            "w-full rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-2xl transition-all duration-500",
-            "shadow-[0_0_1px_rgba(255,255,255,0.1)_inset,0_20px_40px_-15px_rgba(0,0,0,0.5)]",
+            "w-full rounded-full border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] backdrop-blur-2xl transition-all duration-500",
+            "shadow-[0_0_1px_rgba(255,255,255,0.1)_inset,0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_0_1px_rgba(255,255,255,0.1)_inset,0_20px_40px_-15px_rgba(0,0,0,0.5)]",
             scrolled ? "py-2.5 px-6" : "py-4 px-8"
           )}
         >
@@ -104,7 +104,7 @@ export const NavItems = ({
         <a
           key={`nav-link-${idx}`}
           href={item.link}
-          className="text-sm font-medium text-gray-400 hover:text-neon-green transition-colors"
+          className="text-sm font-medium text-gray-900 dark:text-gray-400 hover:text-neon-green transition-colors"
         >
           {item.name}
         </a>
@@ -120,13 +120,13 @@ export const NavbarLogo = ({ onClick }: { onClick?: () => void }) => {
       className="flex items-center gap-2 cursor-pointer group translate-y-[1px]"
     >
       <img src={logo} alt="Hackaccino Logo" className="w-7 h-7 object-contain" />
-      <span 
-        className="font-['Array-Bold'] font-black text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.5)] m-0 tracking-[1px] w-fit text-lg group-hover:text-neon-green transition-colors uppercase"
+      <span
+        className="font-['Array-Bold'] font-black text-black dark:text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_4px_30px_rgba(0,0,0,0.5)] m-0 tracking-[1px] w-fit text-lg group-hover:text-neon-green transition-colors uppercase"
       >
         HACKACCINO
       </span>
-      <div className="ml-1 px-2 py-0.5 bg-white/10 border border-white/10 rounded-full flex items-center justify-center translate-y-[0.5px]">
-        <span className="text-[10px] font-black text-white tracking-widest">4.0</span>
+      <div className="ml-1 px-2 py-0.5 bg-black/10 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-full flex items-center justify-center translate-y-[0.5px]">
+        <span className="text-[10px] font-black text-black dark:text-white tracking-widest">4.0</span>
       </div>
     </div>
   );
@@ -148,7 +148,7 @@ export const NavbarButton = ({
       <button
         onClick={onClick}
         className={cn(
-          "px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 rounded-full transition-all",
+          "px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all",
           className
         )}
       >
@@ -162,12 +162,12 @@ export const NavbarButton = ({
       <button
         onClick={onClick}
         className={cn(
-          "relative px-5 py-2 text-xs font-bold uppercase tracking-widest text-gray-300 bg-white/5 border border-white/10 rounded-full transition-all duration-300 overflow-hidden group",
-          "hover:text-white hover:border-neon-green/40 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(163,255,18,0.1)]",
+          "relative px-5 py-2 text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-full transition-all duration-300 overflow-hidden group",
+          "hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-neon-green/40 hover:bg-black/10 dark:hover:bg-white/10 hover:shadow-[0_0_15px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_0_15px_rgba(163,255,18,0.1)]",
           className
         )}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/5 dark:via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
         <span className="relative z-10 flex items-center gap-2">
           {children}
         </span>
@@ -208,7 +208,7 @@ export const MobileNavToggle = ({
   return (
     <button
       onClick={onClick}
-      className="p-2 text-gray-400 hover:text-white transition-colors"
+      className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
     >
       {isOpen ? (
         <svg
@@ -260,7 +260,7 @@ export const MobileNavMenu = ({
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          className="absolute top-full left-0 right-0 mt-2 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 flex flex-col gap-6 overflow-hidden z-[5001]"
+          className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-black/90 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl p-6 flex flex-col gap-6 overflow-hidden z-[5001]"
         >
           {children}
         </motion.div>
