@@ -1,4 +1,5 @@
 const supabase = require('../config/supabaseClient');
+const { getIO } = require('../socket');
 
 // Get all teams or search with pagination
 const getTeams = async (req, res) => {
@@ -82,6 +83,14 @@ const updateTeamStatus = async (req, res) => {
 
     if (error) throw error;
 
+    // Emit socket event for team status update
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data[0]);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
     res.status(200).json(data[0]);
   } catch (error) {
     console.error('Error updating team status:', error);
@@ -114,6 +123,19 @@ const assignRoom = async (req, res) => {
         error: result.error, 
         message: result.message 
       });
+    }
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      io.emit('roomUpdate', {
+        team: result.team,
+        room: result.room,
+        old_room: result.old_room,
+        old_room_name: result.old_room_name
+      });
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
     }
 
     res.status(200).json({

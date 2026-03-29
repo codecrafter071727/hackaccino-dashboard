@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
+import { io, Socket } from 'socket.io-client';
 
 interface Team {
-  team_id: number;
+  team_id: string;
   team_leader_name: string;
   team_members: any; // Can be array of strings or objects
   registered_email: string;
@@ -27,9 +28,128 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [assigningTeamId, setAssigningTeamId] = useState<number | null>(null);
+  const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
+  const socketRef = useRef<Socket | null>(null);
+  const allTeamsRef = useRef<Team[]>([]);
+  const selectedBlockRef = useRef<string | null>(null);
+  const selectedRoomRef = useRef<any | null>(null);
+
+  // Keep refs in sync
+  useEffect(() => {
+    allTeamsRef.current = allTeams;
+  }, [allTeams]);
+
+  useEffect(() => {
+    selectedBlockRef.current = selectedBlock;
+  }, [selectedBlock]);
+
+  useEffect(() => {
+    selectedRoomRef.current = selectedRoom;
+  }, [selectedRoom]);
 
   const navigate = useNavigate();
+
+  // Socket.io and Supabase Real-time initialization
+  useEffect(() => {
+    // 1. Initialize Socket.io (for ultra-fast local updates)
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      withCredentials: true,
+      path: '/socket.io'
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket server');
+      setConnectionStatus('connected');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from WebSocket server');
+      setConnectionStatus('disconnected');
+    });
+
+    socket.on('roomUpdate', (data: { team: Team, room: any, old_room: any, old_room_name?: string }) => {
+      console.log('Live room update received via Socket:', data);
+      
+      // 1. Update the team list immediately via Socket
+      if (data.team) {
+        const updateState = (prevTeams: Team[]) => {
+          if (!prevTeams || prevTeams.length === 0) return prevTeams;
+          return prevTeams.map(t => 
+            t.team_id.toString() === data.team.team_id.toString() ? { ...t, ...data.team } : t
+          );
+        };
+        setAllTeams(updateState);
+        setFilteredTeams(updateState);
+      }
+
+      // 2. Refresh global occupancy and rooms
+      fetchOccupancy();
+      if (selectedBlockRef.current) {
+        fetch(`${API_BASE_URL}/api/admin/rooms?block=${encodeURIComponent(selectedBlockRef.current)}`)
+            .then(res => res.json())
+            .then(data => setRooms(data))
+            .catch(err => console.error('Socket background refresh failed:', err));
+      }
+    });
+
+    // 2. Initialize Supabase Real-time (for guaranteed cross-instance sync)
+    const roomsChannel = supabase
+      .channel('rooms-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rooms' }, // Listen to all events
+        (payload) => {
+          console.log('Real-time Room Update from Supabase:', payload);
+          
+          // Force immediate refresh of occupancy and rooms
+          fetchOccupancy();
+          if (selectedBlockRef.current) {
+            fetchRooms(selectedBlockRef.current);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Rooms sync status:', status);
+      });
+
+    const teamsChannel = supabase
+      .channel('teams-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'teams' },
+        (payload) => {
+          console.log('Real-time Team Update from Supabase:', payload);
+          const updatedTeam = payload.new as Team;
+          
+          if (!updatedTeam || !updatedTeam.team_id) return;
+
+          // 1. Directly update the teams in state for instant UI reaction
+          const updateState = (prevTeams: Team[]) => {
+            if (!prevTeams || prevTeams.length === 0) return prevTeams;
+            return prevTeams.map(t => 
+              t.team_id.toString() === updatedTeam.team_id.toString() ? { ...t, ...updatedTeam } : t
+            );
+          };
+
+          setAllTeams(updateState);
+          setFilteredTeams(updateState);
+          
+          // 2. Refresh occupancy counts silently
+          fetchOccupancy();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (socket) socket.disconnect();
+      supabase.removeChannel(roomsChannel);
+      supabase.removeChannel(teamsChannel);
+    };
+  }, []); // Only connect once on mount
 
   // Fetch initial occupancy counts
   const fetchOccupancy = async () => {
@@ -80,38 +200,6 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       if (!isModal) navigate('/');
     }
   }, [navigate, isModal]);
-
-  // Real-time subscription for team updates
-  useEffect(() => {
-    const subscription = supabase
-      .channel('room_allocation_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'teams',
-        },
-        (payload) => {
-          const updatedTeam = payload.new as Team;
-          
-          // Update allTeams list if it's loaded
-          setAllTeams((prevTeams) => 
-            prevTeams.map((t) => 
-              t.team_id === updatedTeam.team_id ? { ...t, ...updatedTeam } : t
-            )
-          );
-          
-          // Refresh occupancy counts
-          fetchOccupancy();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, []);
 
   // Fetch rooms when block is selected
   useEffect(() => {
@@ -253,15 +341,18 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
       await response.json();
 
-      // Update local state with the precise data from server
-      const updatedTeams = allTeams.map(t => 
-        t.team_id === team.team_id ? { ...t, allocated_room: selectedRoom.room_name } : t
-      );
-      setAllTeams(updatedTeams);
-      setFilteredTeams(updatedTeams.filter(t => filteredTeams.some(ft => ft.team_id === t.team_id)));
+      // The server already emitted the socket event which will update occupancyCounts and rooms
+      // But we update local allTeams immediately for the current user
+      if (allTeams.length > 0) {
+          const updatedTeams = allTeams.map(t => 
+            t.team_id === team.team_id ? { ...t, allocated_room: selectedRoom.room_name } : t
+          );
+          setAllTeams(updatedTeams);
+          setFilteredTeams(updatedTeams.filter(t => filteredTeams.some(ft => ft.team_id === t.team_id)));
+      }
 
-      // Refresh the rooms list to show updated capacity for all rooms
-      if (selectedBlock) fetchRooms(selectedBlock);
+      // If we are in the room list view (this shouldn't happen if handleAssignRoom is called, 
+      // but just in case), we don't need to manually fetchRooms anymore because the socket does it.
       
       alert(`✅ Success: Team ${team.team_id} assigned to ${selectedRoom.room_name}`);
     } catch (err: any) {
@@ -317,6 +408,15 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
               <span className="text-sm bg-college-secondary text-college-primary px-2 py-1 rounded font-semibold">DASHBOARD</span>
             </div>
             <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
+                  connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+                }`}></div>
+                <span className="text-[10px] uppercase tracking-wider font-bold opacity-70">
+                  {connectionStatus === 'connected' ? 'Live' : connectionStatus}
+                </span>
+              </div>
               <span className="text-sm opacity-90 font-medium hidden md:inline-block">
                 {loggedInUser?.email} <span className="text-xs opacity-75">({loggedInUser?.duty})</span>
               </span>
@@ -444,14 +544,12 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                       <div className="flex flex-col">
-                        <span className={isModal ? 'text-white/60' : ''}>Total Slots: <span className={`${isModal ? 'text-white' : 'text-gray-900'} font-bold`}>{room.capacity + (occupancyCounts[room.room_name] || 0)} Teams</span></span>
-                        {occupancyCounts[room.room_name] !== undefined && (
-                          <span className={`text-xs font-bold mt-1 ${
-                            room.capacity > 0 ? 'text-green-500' : 'text-red-500'
-                          }`}>
-                            Available: {room.capacity} Teams
-                          </span>
-                        )}
+                        <span className={isModal ? 'text-white/60' : ''}>Total Slots: <span className={`${isModal ? 'text-white' : 'text-gray-900'} font-bold`}>{(room.capacity || 0) + (occupancyCounts[room.room_name] || 0)} Teams</span></span>
+                        <span className={`text-xs font-bold mt-1 ${
+                          (room.capacity || 0) > 0 ? 'text-green-500' : 'text-red-500'
+                        }`}>
+                          Available: {room.capacity || 0} Teams
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -499,7 +597,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                         <div 
                             key={team.team_id}
                             className={`${isModal ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'} rounded-xl shadow-md overflow-hidden border transition-all duration-300 ${
-                                team.allocated_room === selectedRoom.room_name 
+                                team.allocated_room && selectedRoom && team.allocated_room.trim().toLowerCase() === selectedRoom.room_name.trim().toLowerCase()
                                 ? 'border-green-500 ring-2 ring-green-500/20' 
                                 : isModal ? 'hover:border-neon-green' : 'hover:border-college-primary hover:shadow-xl'
                             }`}
@@ -511,11 +609,11 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isModal ? 'bg-white/10 text-white/60' : 'bg-gray-100 text-gray-600'}`}>#{team.team_id}</span>
                                             {team.allocated_room && (
                                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-                                                    team.allocated_room === selectedRoom.room_name 
+                                                    selectedRoom && team.allocated_room.trim().toLowerCase() === selectedRoom.room_name.trim().toLowerCase()
                                                     ? 'bg-green-500/20 text-green-400 border-green-500/30'
                                                     : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
                                                 }`}>
-                                                    {team.allocated_room === selectedRoom.room_name ? 'ASSIGNED HERE' : team.allocated_room}
+                                                    {selectedRoom && team.allocated_room.trim().toLowerCase() === selectedRoom.room_name.trim().toLowerCase() ? 'ASSIGNED HERE' : team.allocated_room}
                                                 </span>
                                             )}
                                         </div>
@@ -544,10 +642,12 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
                                 <button
                                     onClick={() => handleAssignRoom(team)}
-                                    disabled={assigningTeamId === team.team_id || team.allocated_room === selectedRoom.room_name}
+                                    disabled={assigningTeamId === team.team_id || (team.allocated_room !== null && team.allocated_room !== undefined && team.allocated_room !== '')}
                                     className={`w-full py-2.5 rounded-lg font-bold transition-all ${
-                                        team.allocated_room === selectedRoom.room_name
-                                        ? 'bg-green-500/10 text-green-500 cursor-default border border-green-500/20'
+                                        (team.allocated_room !== null && team.allocated_room !== undefined && team.allocated_room !== '')
+                                        ? team.allocated_room.trim().toLowerCase() === (selectedRoom?.room_name || '').trim().toLowerCase()
+                                            ? 'bg-green-500/10 text-green-500 cursor-default border border-green-500/20'
+                                            : 'bg-amber-500/10 text-amber-500 cursor-default border border-amber-500/20'
                                         : assigningTeamId === team.team_id
                                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                         : isModal 
@@ -560,12 +660,23 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                                             <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
                                             Assigning...
                                         </span>
-                                    ) : team.allocated_room === selectedRoom.room_name ? (
+                                    ) : (team.allocated_room !== null && team.allocated_room !== undefined && team.allocated_room !== '') ? (
                                         <span className="flex items-center justify-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                            </svg>
-                                            Allocated
+                                            {team.allocated_room.trim().toLowerCase() === (selectedRoom?.room_name || '').trim().toLowerCase() ? (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                    Allocated Here
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                    Allocated to {team.allocated_room}
+                                                </>
+                                            )}
                                         </span>
                                     ) : (
                                         'Assign to this Room'

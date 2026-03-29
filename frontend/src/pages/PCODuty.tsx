@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
+import { io, Socket } from 'socket.io-client';
 
 interface Volunteer {
   id: number;
@@ -20,6 +21,35 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const socketRef = useRef<Socket | null>(null);
+
+  // Socket.io initialization and listeners
+  useEffect(() => {
+    const socket = io(API_BASE_URL);
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Connected to PCO WebSocket server');
+    });
+
+    socket.on('volunteerPresenceUpdate', (updatedVolunteer: Volunteer) => {
+      console.log('Live volunteer presence update received:', updatedVolunteer);
+      setVolunteers(prev => 
+        prev.map(v => v.id === updatedVolunteer.id ? { ...v, ...updatedVolunteer } : v)
+      );
+    });
+
+    socket.on('newVolunteerAssignment', (newVolunteer: Volunteer) => {
+      console.log('Live new volunteer assignment received:', newVolunteer);
+      setVolunteers(prev => [newVolunteer, ...prev]);
+    });
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (toast) {

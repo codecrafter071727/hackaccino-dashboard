@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const supabase = require('../config/supabaseClient');
+const { getIO } = require('../socket');
 
 // Create a new staff assignment
 exports.assignRole = async (req, res) => {
@@ -95,6 +96,14 @@ exports.createRoom = async (req, res) => {
 
     if (error) throw error;
 
+    // Emit socket event for new room creation
+    try {
+      const io = getIO();
+      io.emit('roomCreated', data[0]);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
     res.status(201).json({ message: 'Room created successfully', data });
   } catch (error) {
     console.error('Error creating room:', error);
@@ -139,6 +148,14 @@ exports.assignVolunteerRoom = async (req, res) => {
 
     if (error) throw error;
 
+    // Emit socket event for new volunteer assignment
+    try {
+      const io = getIO();
+      io.emit('newVolunteerAssignment', data[0]);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
     res.status(201).json({ message: 'Volunteer assigned successfully', data });
   } catch (error) {
     console.error('Error assigning volunteer:', error);
@@ -178,6 +195,15 @@ exports.updateVolunteerPresence = async (req, res) => {
       .select();
 
     if (error) throw error;
+
+    // Emit socket event for volunteer presence update
+    try {
+      const io = getIO();
+      io.emit('volunteerPresenceUpdate', data[0]);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
     res.status(200).json({ message: 'Presence updated successfully', data });
   } catch (error) {
     console.error('Error updating presence:', error);

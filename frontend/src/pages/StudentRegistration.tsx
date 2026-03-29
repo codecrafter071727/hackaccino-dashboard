@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
+import { io, Socket } from 'socket.io-client';
 
 interface TeamMember {
   name: string;
@@ -25,6 +26,13 @@ interface Team {
   mentors_assigned?: string;
 }
 
+type DbTeam = Omit<Team, 'team_members'> & { team_members?: unknown };
+type TeamsRealtimePayload = {
+  eventType?: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: DbTeam;
+  old?: DbTeam;
+};
+
 const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,8 +43,71 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [editMembers, setEditMembers] = useState<TeamMember[]>([]);
   
   const [updating, setUpdating] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const updatingRef = useRef(false);
+  const selectedTeamRef = useRef<Team | null>(null);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    updatingRef.current = updating;
+  }, [updating]);
+
+  useEffect(() => {
+    selectedTeamRef.current = selectedTeam;
+  }, [selectedTeam]);
+
+  // Socket.io initialization and listeners
+  useEffect(() => {
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      withCredentials: true,
+      path: '/socket.io'
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Connected to Registration WebSocket server');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Registration socket connect_error:', error);
+    });
+
+    socket.on('teamUpdate', (updatedTeam: Team) => {
+      console.log('Live team update received in registration:', updatedTeam);
+      setTeams(prev => 
+        prev.map(t => t.team_id?.toString() === updatedTeam.team_id?.toString() ? { ...t, ...updatedTeam } : t)
+      );
+      
+      if (selectedTeamRef.current && selectedTeamRef.current.team_id?.toString() === updatedTeam.team_id?.toString()) {
+        setSelectedTeam(prev => prev ? { ...prev, ...updatedTeam } : prev);
+        if (!updatingRef.current) {
+          setEditMembers(updatedTeam.team_members);
+        }
+      }
+    });
+
+    socket.on('roomUpdate', (data: { team: Team }) => {
+        const { team: updatedTeam } = data;
+        setTeams(prev => 
+            prev.map(t => t.team_id?.toString() === updatedTeam.team_id?.toString() ? { ...t, ...updatedTeam } : t)
+        );
+        if (selectedTeamRef.current && selectedTeamRef.current.team_id?.toString() === updatedTeam.team_id?.toString()) {
+          setSelectedTeam(prev => prev ? { ...prev, ...updatedTeam } : prev);
+          if (!updatingRef.current) {
+            setEditMembers(updatedTeam.team_members);
+          }
+        }
+    });
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, []);
 
   // Protect the route
   useEffect(() => {
@@ -56,7 +127,7 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         alert('Access Denied: Your assigned duties do not permit access to this page.');
         navigate('/');
       }
-    } catch (e) {
+    } catch {
       localStorage.removeItem('staffUser');
       if (!isModal) navigate('/');
     }
@@ -90,9 +161,10 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       } else {
         setTeams([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error('Error fetching teams:', error);
-      alert(`Error fetching teams: ${error.message}`);
+      alert(`Error fetching teams: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -101,40 +173,72 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   useEffect(() => {
     fetchTeams();
 
-    // Real-time subscription to 'teams' table
     const subscription = supabase
       .channel('teams_updates')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'teams',
         },
         (payload) => {
-          const updatedTeam = payload.new as Team;
-          
-          // Update the list of teams in real-time
-          setTeams((prevTeams) => 
-            prevTeams.map((t) => 
-              t.team_id === updatedTeam.team_id ? { ...t, ...updatedTeam } : t
-            )
-          );
+          const p = payload as unknown as TeamsRealtimePayload;
+          const eventType = p.eventType;
+          const nextTeamRaw = p.new;
+          const oldTeamRaw = p.old;
+          const keyId = (nextTeamRaw?.team_id ?? oldTeamRaw?.team_id)?.toString();
 
-          // If the updated team is currently selected in the modal, update that too
+          if (!keyId) return;
+
+          const nextTeam: Team | undefined = nextTeamRaw
+            ? ({
+                ...nextTeamRaw,
+                team_id: nextTeamRaw.team_id?.toString(),
+                team_members: Array.isArray(nextTeamRaw.team_members) ? (nextTeamRaw.team_members as TeamMember[]) : []
+              } as Team)
+            : undefined;
+
+          setTeams((prevTeams) => {
+            if (!prevTeams || prevTeams.length === 0) return prevTeams;
+
+            if (eventType === 'DELETE') {
+              return prevTeams.filter(t => t.team_id?.toString() !== keyId);
+            }
+
+            const has = prevTeams.some(t => t.team_id?.toString() === keyId);
+            if (has && nextTeam) {
+              return prevTeams.map(t => t.team_id?.toString() === keyId ? { ...t, ...nextTeam } : t);
+            }
+
+            if (!has && nextTeam) {
+              return [nextTeam, ...prevTeams];
+            }
+
+            return prevTeams;
+          });
+
           setSelectedTeam((prevSelected) => {
-            if (prevSelected && prevSelected.team_id === updatedTeam.team_id) {
-               // Also update the edit form state if it's open, but only if not currently editing (optional, complex)
-               // For now, we'll just update the background data. 
-               // To make it truly live in the modal while editing is tricky without overwriting user input.
-               // Let's at least update the visual indicators if the user isn't actively typing.
-               return { ...prevSelected, ...updatedTeam };
+            if (prevSelected && prevSelected.team_id?.toString() === keyId) {
+               if (eventType === 'DELETE') return null;
+               if (nextTeam) return { ...prevSelected, ...nextTeam };
             }
             return prevSelected;
           });
+
+          if (
+            selectedTeamRef.current &&
+            selectedTeamRef.current.team_id?.toString() === keyId &&
+            !updatingRef.current &&
+            nextTeam
+          ) {
+            setEditMembers(nextTeam.team_members);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Registration teams realtime status:', status);
+      });
 
     return () => {
       supabase.removeChannel(subscription);
