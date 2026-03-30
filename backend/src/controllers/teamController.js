@@ -169,11 +169,9 @@ const toggleAttendance = async (req, res) => {
 
     const newPresent = !teamArr.leader_present;
 
-    // Sync leader entry inside team_members array
+    // Sync ALL entries inside team_members array
     const updatedMembers = Array.isArray(teamArr.team_members)
-      ? teamArr.team_members.map(m =>
-          m.role === 'Leader' ? { ...m, is_present: newPresent } : m
-        )
+      ? teamArr.team_members.map(m => ({ ...m, is_present: newPresent }))
       : teamArr.team_members;
 
     const { data, error } = await supabase
@@ -216,9 +214,7 @@ const toggleIdCard = async (req, res) => {
     const newIssued = !teamArr.leader_id_issued;
 
     const updatedMembers = Array.isArray(teamArr.team_members)
-      ? teamArr.team_members.map(m =>
-          m.role === 'Leader' ? { ...m, id_card_issued: newIssued } : m
-        )
+      ? teamArr.team_members.map(m => ({ ...m, id_card_issued: newIssued }))
       : teamArr.team_members;
 
     const { data, error } = await supabase
