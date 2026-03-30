@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { API_BASE_URL } from '../config';
 
 interface Team {
   team_id: number;
@@ -69,14 +70,23 @@ const AnalyticsDashboard = () => {
 
   const togglePresence = async (teamId: number, currentStatus: boolean) => {
     setUpdatingId(teamId);
+    // Optimistic update — flip UI immediately
+    const newStatus = !currentStatus;
+    setTeams(prev =>
+      prev.map(t => t.team_id === teamId ? { ...t, leader_present: newStatus } : t)
+    );
     try {
-      const { error } = await supabase
-        .from('teams')
-        .update({ leader_present: !currentStatus })
-        .eq('team_id', teamId);
-      
-      if (error) throw error;
-      showSuccess(`Team #${teamId} marked as ${!currentStatus ? 'Present' : 'Absent'} successfully!`);
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const res = await fetch(`${baseUrl}/api/teams/${teamId}/attendance`, { method: 'PATCH' });
+      if (!res.ok) {
+        // Revert on failure
+        setTeams(prev =>
+          prev.map(t => t.team_id === teamId ? { ...t, leader_present: currentStatus } : t)
+        );
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update attendance');
+      }
+      showSuccess(`Team #${teamId} marked as ${newStatus ? 'Present' : 'Absent'} successfully!`);
     } catch (err) {
       console.error('Error updating presence:', err);
     } finally {
@@ -86,13 +96,21 @@ const AnalyticsDashboard = () => {
 
   const toggleIdCard = async (teamId: number, currentStatus: boolean) => {
     setUpdatingId(teamId);
+    const newStatus = !currentStatus;
+    setTeams(prev =>
+      prev.map(t => t.team_id === teamId ? { ...t, leader_id_issued: newStatus } : t)
+    );
     try {
-      const { error } = await supabase
-        .from('teams')
-        .update({ leader_id_issued: !currentStatus })
-        .eq('team_id', teamId);
-      if (error) throw error;
-      showSuccess(`ID Card for Team #${teamId} ${!currentStatus ? 'Issued' : 'Revoked'} successfully!`);
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const res = await fetch(`${baseUrl}/api/teams/${teamId}/idcard`, { method: 'PATCH' });
+      if (!res.ok) {
+        setTeams(prev =>
+          prev.map(t => t.team_id === teamId ? { ...t, leader_id_issued: currentStatus } : t)
+        );
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update ID card status');
+      }
+      showSuccess(`ID Card for Team #${teamId} ${newStatus ? 'Issued' : 'Revoked'} successfully!`);
     } catch (err) {
       console.error('Error updating ID card status:', err);
     } finally {

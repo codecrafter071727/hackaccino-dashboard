@@ -24,6 +24,9 @@ interface Team {
   current_phase?: string;
   invite_status?: string;
   mentors_assigned?: string;
+  // Team-level presence/ID flags set by Analytics Dashboard
+  leader_present?: boolean;
+  leader_id_issued?: boolean;
 }
 
 type DbTeam = Omit<Team, 'team_members'> & { team_members?: unknown };
@@ -195,8 +198,16 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
             ? ({
                 ...nextTeamRaw,
                 team_id: nextTeamRaw.team_id?.toString(),
-                team_members: Array.isArray(nextTeamRaw.team_members) ? (nextTeamRaw.team_members as TeamMember[]) : []
-              } as Team)
+                // Preserve existing team_members if realtime payload doesn't include them
+                // (Supabase sometimes omits JSONB columns in realtime payloads)
+                team_members: (() => {
+                  if (Array.isArray(nextTeamRaw.team_members) && nextTeamRaw.team_members.length > 0) {
+                    return nextTeamRaw.team_members as TeamMember[];
+                  }
+                  // Will be merged with existing below
+                  return null;
+                })()
+              } as unknown as Team)
             : undefined;
 
           setTeams((prevTeams) => {
@@ -208,7 +219,13 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
             const has = prevTeams.some(t => t.team_id?.toString() === keyId);
             if (has && nextTeam) {
-              return prevTeams.map(t => t.team_id?.toString() === keyId ? { ...t, ...nextTeam } : t);
+              return prevTeams.map(t => {
+                if (t.team_id?.toString() !== keyId) return t;
+                const merged = { ...t, ...nextTeam };
+                // Keep existing team_members if realtime payload had none
+                if (!nextTeam.team_members) merged.team_members = t.team_members;
+                return merged;
+              });
             }
 
             if (!has && nextTeam) {
@@ -221,7 +238,11 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
           setSelectedTeam((prevSelected) => {
             if (prevSelected && prevSelected.team_id?.toString() === keyId) {
                if (eventType === 'DELETE') return null;
-               if (nextTeam) return { ...prevSelected, ...nextTeam };
+               if (nextTeam) {
+                 const merged = { ...prevSelected, ...nextTeam };
+                 if (!nextTeam.team_members) merged.team_members = prevSelected.team_members;
+                 return merged;
+               }
             }
             return prevSelected;
           });
@@ -413,14 +434,14 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                         {team.allocated_room}
                       </span>
                     )}
-                    {/* Visual indicators for overall team status */}
-                    {team.team_members?.some(m => m.is_present) && (
-                      <span className="bg-green-500/30 text-green-300 text-[10px] px-2 py-1 rounded-md font-bold border border-green-500/30" title="Someone is present">
+                    {/* Visual indicators — check team-level flags (set by Analytics) OR per-member status */}
+                    {(team.leader_present || team.team_members?.some(m => m.is_present)) && (
+                      <span className="bg-green-500/30 text-green-300 text-[10px] px-2 py-1 rounded-md font-bold border border-green-500/30" title="Leader is present">
                         P
                       </span>
                     )}
-                    {team.team_members?.every(m => m.id_card_issued) && (
-                      <span className="bg-blue-500/30 text-blue-300 text-[10px] px-2 py-1 rounded-md font-bold border border-blue-500/30" title="All IDs issued">
+                    {(team.leader_id_issued || team.team_members?.some(m => m.id_card_issued)) && (
+                      <span className="bg-blue-500/30 text-blue-300 text-[10px] px-2 py-1 rounded-md font-bold border border-blue-500/30" title="ID card issued">
                         ID
                       </span>
                     )}

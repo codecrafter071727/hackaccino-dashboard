@@ -10,7 +10,7 @@ const getTeams = async (req, res) => {
     // Optimization: Select only necessary fields
     let apiQuery = supabase
       .from('teams')
-      .select('team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room', { count: 'exact' })
+      .select('team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room, leader_present, leader_id_issued', { count: 'exact' })
       .order('team_id', { ascending: true });
 
     if (query) {
@@ -152,8 +152,102 @@ const assignRoom = async (req, res) => {
   }
 };
 
+// Toggle attendance for a team (leader_present + syncs leader member is_present)
+const toggleAttendance = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Fetch current team data
+    const { data: teamArr, error: fetchError } = await supabase
+      .from('teams')
+      .select('team_id, leader_present, team_members')
+      .eq('team_id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!teamArr) return res.status(404).json({ error: 'Team not found' });
+
+    const newPresent = !teamArr.leader_present;
+
+    // Sync leader entry inside team_members array
+    const updatedMembers = Array.isArray(teamArr.team_members)
+      ? teamArr.team_members.map(m =>
+          m.role === 'Leader' ? { ...m, is_present: newPresent } : m
+        )
+      : teamArr.team_members;
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update({ leader_present: newPresent, team_members: updatedMembers })
+      .eq('team_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error toggling attendance:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+};
+
+// Toggle ID card issuance (leader_id_issued + syncs leader member id_card_issued)
+const toggleIdCard = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: teamArr, error: fetchError } = await supabase
+      .from('teams')
+      .select('team_id, leader_id_issued, team_members')
+      .eq('team_id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!teamArr) return res.status(404).json({ error: 'Team not found' });
+
+    const newIssued = !teamArr.leader_id_issued;
+
+    const updatedMembers = Array.isArray(teamArr.team_members)
+      ? teamArr.team_members.map(m =>
+          m.role === 'Leader' ? { ...m, id_card_issued: newIssued } : m
+        )
+      : teamArr.team_members;
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update({ leader_id_issued: newIssued, team_members: updatedMembers })
+      .eq('team_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error toggling ID card:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+};
+
 module.exports = {
   getTeams,
   updateTeamStatus,
-  assignRoom
+  assignRoom,
+  toggleAttendance,
+  toggleIdCard
 };
