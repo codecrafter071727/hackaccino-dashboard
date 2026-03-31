@@ -22,3 +22,7 @@ yarn-error.log*
 # IDE
 .vscode/
 .idea/
+
+# Environment files
+backend/.env
+frontend/.env

@@ -239,13 +239,25 @@ exports.refreshTeams = async (req, res) => {
       // Parse members string into array of objects
       const memberNames = team["Members Names"] ? team["Members Names"].split(',').map(n => n.trim()) : [];
       const memberMails = team["Members Mail"] ? team["Members Mail"].split(',').map(m => m.trim()) : [];
-      
-      const team_members = memberNames.map((name, idx) => ({
-        name: name,
-        email: memberMails[idx] || '',
-        is_present: false,
-        id_card_issued: false
-      }));
+      const leaderName = (team["Leader Name"] || '').trim().toLowerCase();
+
+      // Deduplicate: the source JSON includes the leader in both "Leader Name" AND "Members Names"
+      // Remove exactly the first occurrence that matches the leader name (case-insensitive)
+      let leaderDropped = false;
+      const team_members = memberNames.reduce((acc, name, idx) => {
+        if (!leaderDropped && name.trim().toLowerCase() === leaderName) {
+          leaderDropped = true; // skip this one duplicate
+          return acc;
+        }
+        acc.push({
+          name: name,
+          email: memberMails[idx] || '',
+          is_present: false,
+          id_card_issued: false,
+        });
+        return acc;
+      }, []);
+
 
       return {
         team_id: team["Team ID"],

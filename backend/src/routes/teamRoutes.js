@@ -5,5 +5,6 @@ const teamController = require('../controllers/teamController');
 router.get('/', teamController.getTeams);
 router.put('/:id', teamController.updateTeamStatus);
 router.put('/:id/assign-room', teamController.assignRoom);
+router.post('/verify-qr', teamController.verifyQR);
 
 module.exports = router;
