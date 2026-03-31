@@ -14,7 +14,8 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' });
 
-  const availableDuties = ['Registration', 'Room Allocation', 'PCO Assignment'];
+  const availableDuties = ['Registration', 'Room Allocation', 'PCO Assignment', 'QR Attendance'];
+
 
   const toggleDuty = (dutyName: string) => {
     setSelectedDuties(prev => 
