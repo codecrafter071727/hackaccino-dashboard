@@ -27,6 +27,7 @@ import { supabase } from './supabaseClient';
 const StudentRegistration = lazy(() => import('./pages/StudentRegistration'));
 const RoomAllocation = lazy(() => import('./pages/RoomAllocation'));
 const PCODuty = lazy(() => import('./pages/PCODuty'));
+const QRScanner = lazy(() => import('./pages/QRScanner'));
 
 // Loading component for Suspense
 const FeatureLoading = () => (
@@ -101,8 +102,8 @@ const FeatureModal = ({
 function DashboardHome() {
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [targetFeature, setTargetFeature] = useState<'Registration' | 'Room Allocation' | 'PCO Assignment' | null>(null);
-  const [activeFeatureModal, setActiveFeatureModal] = useState<'Registration' | 'Room Allocation' | 'PCO Assignment' | null>(null);
+  const [targetFeature, setTargetFeature] = useState<'Registration' | 'Room Allocation' | 'PCO Assignment' | 'QR Attendance' | null>(null);
+  const [activeFeatureModal, setActiveFeatureModal] = useState<'Registration' | 'Room Allocation' | 'PCO Assignment' | 'QR Attendance' | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [error, setError] = useState('');
@@ -245,7 +246,7 @@ function DashboardHome() {
     }
   };
 
-  const handleCardClick = (feature: 'Registration' | 'Room Allocation' | 'PCO Assignment') => {
+  const handleCardClick = (feature: 'Registration' | 'Room Allocation' | 'PCO Assignment' | 'QR Attendance') => {
     // Check if already logged in
     const storedUser = localStorage.getItem('staffUser');
     if (storedUser) {
@@ -514,7 +515,7 @@ function DashboardHome() {
             <p className="mt-3 text-gray-400 max-w-2xl mx-auto">Professional tools to manage registration, rooms, and assignments with clarity and speed.</p>
             <div className="mx-auto mt-6 h-[2px] w-24 bg-[radial-gradient(ellipse_at_center,rgba(163,255,18,0.6)_0%,rgba(163,255,18,0)_70%)]" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             {/* Student Registration Card */}
             <div onClick={() => handleCardClick('Registration')} className="relative rounded-3xl cursor-pointer">
@@ -568,6 +569,26 @@ function DashboardHome() {
               </p>
               <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neon-green text-black font-semibold shadow-[0_0_16px_rgba(163,255,18,0.25)] hover:shadow-[0_0_24px_rgba(163,255,18,0.45)] transition">
                 <span>Assign Duty</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+              </div>
+            </div>
+
+            {/* QR Attendance Card */}
+            <div onClick={() => handleCardClick('QR Attendance')} className="relative rounded-3xl cursor-pointer">
+              <div className="relative rounded-3xl p-8 card-glass transition-all duration-300">
+              <div className="w-12 h-12 flex items-center justify-center bg-neon-green/15 text-neon-green rounded-2xl mb-8">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.243m-4.243 0L9.757 9.757M9.757 9.757L7.515 7.515M9.757 9.757L7.515 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">QR Attendance</h2>
+              <p className="text-gray-400 leading-relaxed mb-8">
+                Scan participant QR codes to mark attendance instantly and maintain real-time records throughout the hackathon.
+              </p>
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neon-green text-black font-semibold shadow-[0_0_16px_rgba(163,255,18,0.25)] hover:shadow-[0_0_24px_rgba(163,255,18,0.45)] transition">
+                <span>Start Scanning</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </button>
               </div>
@@ -705,6 +726,17 @@ function DashboardHome() {
             </Suspense>
           </FeatureModal>
         )}
+        {activeFeatureModal === 'QR Attendance' && (
+          <FeatureModal 
+            isOpen={true} 
+            onClose={() => setActiveFeatureModal(null)} 
+            title="QR Attendance Scanner"
+          >
+            <Suspense fallback={<FeatureLoading />}>
+              <QRScanner isModal={true} />
+            </Suspense>
+          </FeatureModal>
+        )}
       </AnimatePresence>
 
       {/* Staff Login Modal */}
@@ -799,6 +831,7 @@ function App() {
         <Routes>
           <Route path="/" element={<DashboardHome />} />
           <Route path="/registration" element={<StudentRegistration />} />
+          <Route path="/qr-scanner" element={<QRScanner />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
