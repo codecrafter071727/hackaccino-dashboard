@@ -11,7 +11,10 @@ const getTeams = async (req, res) => {
   try {
     let apiQuery = supabase
       .from('teams')
-      .select('team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room, email_sent', { count: 'exact' })
+      .select(
+        'team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room, leader_present, leader_id_issued, email_sent',
+        { count: 'exact' }
+      )
       .order('team_id', { ascending: true });
 
     if (query) {
@@ -43,17 +46,14 @@ const updateTeamStatus = async (req, res) => {
   const { team_members } = req.body;
 
   try {
-    // ── Step 1: Fetch current team to check email_sent flag ──────────────────
-    const { data: currentTeamArr, error: fetchError } = await supabase
+    const { data: currentTeam, error: fetchError } = await supabase
       .from('teams')
       .select('team_id, team_name, team_leader_name, registered_email, total_members_count, email_sent')
       .eq('team_id', id)
       .single();
 
     if (fetchError) throw fetchError;
-    const currentTeam = currentTeamArr;
 
-    // ── Step 2: Determine new team_status ────────────────────────────────────
     const allPresent = team_members && team_members.length > 0 && team_members.every(m => m.is_present);
     const updateData = {
       team_members,
@@ -69,7 +69,6 @@ const updateTeamStatus = async (req, res) => {
 
     if (error) throw error;
 
-    // Emit socket event for real-time updates
     try {
       const io = getIO();
       io.emit('teamUpdate', data[0]);
@@ -77,13 +76,9 @@ const updateTeamStatus = async (req, res) => {
       console.error('Socket emission failed:', socketError);
     }
 
-    // ── Step 4: QR + Email flow ───────────────────────────────────────────────
     let qrGenerated = false;
     let emailDispatched = false;
 
-    // Only trigger if:
-    //   a) email hasn't been sent yet (no duplicate emails ever)
-    //   b) at least 1 team member is present
     const hasAnyPresent = team_members && team_members.some(m => m.is_present);
 
     if (!currentTeam.email_sent && hasAnyPresent) {
@@ -92,14 +87,12 @@ const updateTeamStatus = async (req, res) => {
           .filter(m => m.is_present)
           .map(m => m.name);
 
-        // ── 4a: Generate the QR code (minimal payload for fast scanning) ────
         const { qrImage, payload } = await generateQR({
           teamId: id,
           teamName: currentTeam.team_name || `Team #${id}`,
           presentCount: presentMembers.length,
         });
 
-        // ── 4b: Store QR in Supabase (upsert so reruns don't duplicate) ──────
         const { error: qrInsertError } = await supabase
           .from('team_qr_codes')
           .upsert(
@@ -123,7 +116,6 @@ const updateTeamStatus = async (req, res) => {
           console.log(`[teamController] QR code stored for team ${id}`);
         }
 
-        // ── 4c: Send email to team leader ────────────────────────────────────
         if (currentTeam.registered_email) {
           await sendQREmail({
             toEmail: currentTeam.registered_email,
@@ -138,7 +130,6 @@ const updateTeamStatus = async (req, res) => {
           emailDispatched = true;
           console.log(`[teamController] QR email sent to ${currentTeam.registered_email}`);
 
-          // ── 4d: Mark email_sent = true so we never re-send ─────────────────
           await supabase
             .from('teams')
             .update({ email_sent: true })
@@ -147,14 +138,12 @@ const updateTeamStatus = async (req, res) => {
           console.warn(`[teamController] Team ${id} has no registered_email — skipping email.`);
         }
       } catch (qrEmailError) {
-        // Non-fatal: log but still return success to the frontend
         console.error('[teamController] QR/Email error (non-fatal):', qrEmailError.message);
       }
     } else if (currentTeam.email_sent) {
       console.log(`[teamController] Team ${id} already has email_sent=true — skipping QR/email.`);
     }
 
-    // ── Step 5: Respond ───────────────────────────────────────────────────────
     res.status(200).json({
       ...data[0],
       qr_generated: qrGenerated,
@@ -203,6 +192,144 @@ const assignRoom = async (req, res) => {
   } catch (error) {
     console.error('Error assigning room:', error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message || 'Failed to assign room' });
+  }
+};
+
+// Toggle attendance for a team (leader_present + syncs leader member is_present)
+const toggleAttendance = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Fetch current team data
+    const { data: teamArr, error: fetchError } = await supabase
+      .from('teams')
+      .select('team_id, leader_present, team_members')
+      .eq('team_id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!teamArr) return res.status(404).json({ error: 'Team not found' });
+
+    const newPresent = !teamArr.leader_present;
+
+    // Sync ALL entries inside team_members array
+    const updatedMembers = Array.isArray(teamArr.team_members)
+      ? teamArr.team_members.map(m => ({ ...m, is_present: newPresent }))
+      : teamArr.team_members;
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update({ leader_present: newPresent, team_members: updatedMembers })
+      .eq('team_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error toggling attendance:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+};
+
+// Toggle ID card issuance (leader_id_issued + syncs leader member id_card_issued)
+const toggleIdCard = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: teamArr, error: fetchError } = await supabase
+      .from('teams')
+      .select('team_id, leader_id_issued, team_members')
+      .eq('team_id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!teamArr) return res.status(404).json({ error: 'Team not found' });
+
+    const newIssued = !teamArr.leader_id_issued;
+
+    const updatedMembers = Array.isArray(teamArr.team_members)
+      ? teamArr.team_members.map(m => ({ ...m, id_card_issued: newIssued }))
+      : teamArr.team_members;
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update({ leader_id_issued: newIssued, team_members: updatedMembers })
+      .eq('team_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error toggling ID card:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+};
+
+// Update individual members' status (attendance + ID cards)
+const updateMembers = async (req, res) => {
+  const { id } = req.params;
+  const { team_members } = req.body;
+
+  if (!Array.isArray(team_members)) {
+    return res.status(400).json({ error: 'team_members must be an array.' });
+  }
+
+  try {
+    // 1. Determine team-level status (only if ALL members are ticked)
+    const allPresent = team_members.length > 0 && team_members.every(m => !!m.is_present);
+    const allIdIssued = team_members.length > 0 && team_members.every(m => !!m.id_card_issued);
+    
+    const updateData = { 
+      team_members,
+      leader_present: allPresent,
+      leader_id_issued: allIdIssued
+    };
+    
+    if (allPresent) {
+      updateData.team_status = 'Approved';
+    } else {
+      updateData.team_status = 'Pending';
+    }
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update(updateData)
+      .eq('team_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Emit socket event for team status update
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error updating members:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 };
 
@@ -269,4 +396,12 @@ const verifyQR = async (req, res) => {
   }
 };
 
-module.exports = { getTeams, updateTeamStatus, assignRoom, verifyQR };
+module.exports = {
+  getTeams,
+  updateTeamStatus,
+  assignRoom,
+  toggleAttendance,
+  toggleIdCard,
+  updateMembers,
+  verifyQR,
+};

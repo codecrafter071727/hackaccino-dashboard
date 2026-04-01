@@ -259,7 +259,7 @@ function DashboardHome() {
         } else {
           alert(`Access Denied! Your assigned duties are "${userDuties.join(', ')}", but you are trying to access "${feature}".`);
         }
-      } catch (error) {
+      } catch {
         localStorage.removeItem('staffUser');
         setTargetFeature(feature);
         setShowLoginModal(true);

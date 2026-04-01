@@ -89,7 +89,7 @@ const QRScanner: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
           await scannerRef.current.stop();
         }
         scannerRef.current.clear();
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
       scannerRef.current = null;
     }
     setIsScanning(false);

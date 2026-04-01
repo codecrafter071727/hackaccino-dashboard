@@ -96,9 +96,10 @@ const AdminDashboard = () => {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to assign roles' });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error assigning role:', error);
-      setMessage({ type: 'error', text: `Error: ${error.message || 'Network error. Ensure backend is running.'}` });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setMessage({ type: 'error', text: `Error: ${errorMessage || 'Network error. Ensure backend is running.'}` });
     } finally {
       setLoading(false);
     }
@@ -137,9 +138,10 @@ const AdminDashboard = () => {
       } else {
         setRoomMessage({ type: 'error', text: data.error || 'Failed to create room' });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating room:', error);
-      setRoomMessage({ type: 'error', text: `Error: ${error.message || 'Network error. Ensure backend is running.'}` });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setRoomMessage({ type: 'error', text: `Error: ${errorMessage || 'Network error. Ensure backend is running.'}` });
     } finally {
       setLoading(false);
     }
@@ -184,9 +186,10 @@ const AdminDashboard = () => {
       } else {
         setVolunteerMessage({ type: 'error', text: data.error || 'Failed to allocate room' });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error allocating volunteer room:', error);
-      setVolunteerMessage({ type: 'error', text: `Error: ${error.message || 'Network error. Ensure backend is running.'}` });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setVolunteerMessage({ type: 'error', text: `Error: ${errorMessage || 'Network error. Ensure backend is running.'}` });
     } finally {
       setLoading(false);
     }

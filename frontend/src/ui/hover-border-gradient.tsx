@@ -14,7 +14,7 @@ export const HoverBorderGradient = forwardRef<HTMLElement, Props>(function Hover
   { as = "button", className = "", containerClassName = "", children, onClick, type },
   ref
 ) {
-  const Tag = as as any;
+  const Tag = as as React.ElementType;
   return (
     <div
       className={cn(
@@ -24,7 +24,7 @@ export const HoverBorderGradient = forwardRef<HTMLElement, Props>(function Hover
       )}
     >
       <Tag
-        ref={ref as any}
+        ref={ref as unknown as React.Ref<HTMLElement>}
         onClick={onClick}
         type={type}
         className={cn(
