@@ -46,6 +46,7 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [editMembers, setEditMembers] = useState<TeamMember[]>([]);
   
   const [updating, setUpdating] = useState(false);
+  const [qrEmailToast, setQrEmailToast] = useState<{ show: boolean; teamName: string }>({ show: false, teamName: '' });
   const socketRef = useRef<Socket | null>(null);
   const updatingRef = useRef(false);
   const selectedTeamRef = useRef<Team | null>(null);
@@ -310,23 +311,27 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       }
 
       if (response.ok) {
-        // Update local state
         setTeams(teams.map(t => t.team_id === data.team_id ? data : t));
-        setSelectedTeam(null); // Close modal
-        alert('Team updated successfully!');
+        setSelectedTeam(null);
+        // Show QR toast if a QR code was generated and email was sent
+        if (data.qr_generated && data.email_dispatched) {
+          setQrEmailToast({ show: true, teamName: selectedTeam.team_name || `Team #${selectedTeam.team_id}` });
+          setTimeout(() => setQrEmailToast({ show: false, teamName: '' }), 6000);
+        } else {
+          alert('Team updated successfully!');
+        }
       } else {
         console.error('Update failed:', data);
-        
-        // Detailed error handling for users
         if (data.error && data.error.includes('does not exist')) {
           alert(`Database Error: The database schema is outdated.\n\nPlease run the SQL script provided in 'backend/schema.sql' to add the missing columns (leader_present, etc.).\n\nTechnical Error: ${data.error}`);
         } else {
           alert(`Failed to update team: ${data.error || response.statusText}`);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating team:', error);
-      alert(`Error updating team: ${error.message || 'Network error'}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Error updating team: ${errorMessage || 'Network error'}`);
     } finally {
       setUpdating(false);
     }
@@ -349,6 +354,33 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
   return (
     <div className={`min-h-screen ${isModal ? 'bg-transparent' : 'bg-college-bg'} font-sans flex flex-col`}>
+
+      {/* QR Code Success Toast */}
+      {qrEmailToast.show && (
+        <div className="fixed top-6 right-6 z-[200] animate-in slide-in-from-right">
+          <div className="flex items-start gap-3 bg-[#0a1a00] border border-neon-green/30 rounded-2xl p-4 shadow-2xl shadow-neon-green/10 max-w-sm">
+            <div className="w-10 h-10 rounded-xl bg-neon-green/10 border border-neon-green/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white leading-tight">QR Code Sent! 🎉</p>
+              <p className="text-xs text-white/50 mt-1 leading-relaxed">
+                QR code generated and emailed to the leader of <span className="text-neon-green font-semibold">{qrEmailToast.teamName}</span>.
+              </p>
+            </div>
+            <button
+              onClick={() => setQrEmailToast({ show: false, teamName: '' })}
+              className="text-white/30 hover:text-white/60 transition-colors flex-shrink-0 mt-0.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
       {/* Navbar - Hide if in modal */}
       {!isModal && (
         <nav className="bg-college-primary text-white shadow-lg">

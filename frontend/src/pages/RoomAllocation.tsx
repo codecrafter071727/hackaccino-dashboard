@@ -4,10 +4,27 @@ import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
 import { io, Socket } from 'socket.io-client';
 
+type TeamMember = string | { name?: string; [key: string]: unknown };
+
+type StaffUser = {
+  email?: string;
+  duty?: string;
+  duties?: string[];
+  [key: string]: unknown;
+};
+
+interface Room {
+  id: number;
+  room_name: string;
+  block: string;
+  capacity: number;
+  [key: string]: unknown;
+}
+
 interface Team {
   team_id: string;
   team_leader_name: string;
-  team_members: any; // Can be array of strings or objects
+  team_members: TeamMember[] | null;
   registered_email: string;
   registered_phone: string;
   leader_present: boolean;
@@ -17,14 +34,14 @@ interface Team {
 
 const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [loggedInUser, setLoggedInUser] = useState<any>(null);
+  const [loggedInUser, setLoggedInUser] = useState<StaffUser | null>(null);
   const [occupancyCounts, setOccupancyCounts] = useState<Record<string, number>>({});
   
   // Assignment State
-  const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,7 +50,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const socketRef = useRef<Socket | null>(null);
   const allTeamsRef = useRef<Team[]>([]);
   const selectedBlockRef = useRef<string | null>(null);
-  const selectedRoomRef = useRef<any | null>(null);
+  const selectedRoomRef = useRef<Room | null>(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -71,7 +88,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       setConnectionStatus('disconnected');
     });
 
-    socket.on('roomUpdate', (data: { team: Team, room: any, old_room: any, old_room_name?: string }) => {
+    socket.on('roomUpdate', (data: { team: Team; room?: Room; old_room?: Room | null; old_room_name?: string }) => {
       console.log('Live room update received via Socket:', data);
       
       // 1. Update the team list immediately via Socket
@@ -162,7 +179,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       if (error) throw error;
 
       const counts: Record<string, number> = {};
-      data.forEach((team: any) => {
+      (data as Array<{ allocated_room?: string | null }>).forEach((team) => {
         const room = team.allocated_room;
         if (room) {
           counts[room] = (counts[room] || 0) + 1;
@@ -195,7 +212,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         alert('Access Denied: Your assigned duties do not permit access to this page.');
         navigate('/');
       }
-    } catch (e) {
+    } catch {
       localStorage.removeItem('staffUser');
       if (!isModal) navigate('/');
     }
@@ -236,7 +253,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       if (team.registered_phone?.toLowerCase().includes(lowerQuery)) return true;
       // Search by Members
       if (Array.isArray(team.team_members)) {
-        return team.team_members.some((m: any) => {
+        return team.team_members.some((m: TeamMember) => {
           if (!m) return false;
           const name = typeof m === 'string' ? m : m.name;
           return name?.toLowerCase().includes(lowerQuery);
@@ -263,10 +280,11 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         throw new Error('Server returned non-JSON response. Please check if the backend is running.');
       }
 
-      const data = await response.json();
-      setRooms(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load rooms. Please try again.');
+      const data: unknown = await response.json();
+      setRooms(Array.isArray(data) ? (data as Room[]) : []);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || 'Failed to load rooms. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -297,9 +315,10 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         setAllTeams(result);
         setFilteredTeams(result);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching teams:', err);
-      setError(err.message || 'Failed to fetch teams');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || 'Failed to fetch teams');
     } finally {
       setLoading(false);
     }
@@ -355,8 +374,9 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       // but just in case), we don't need to manually fetchRooms anymore because the socket does it.
       
       alert(`✅ Success: Team ${team.team_id} assigned to ${selectedRoom.room_name}`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to assign room. Please try again.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      alert(errorMessage || 'Failed to assign room. Please try again.');
       console.error(err);
     } finally {
       setAssigningTeamId(null);
@@ -392,7 +412,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
     }
   };
 
-  const getMemberCount = (members: any) => {
+  const getMemberCount = (members: unknown) => {
     if (Array.isArray(members)) return members.length;
     return 0;
   };
