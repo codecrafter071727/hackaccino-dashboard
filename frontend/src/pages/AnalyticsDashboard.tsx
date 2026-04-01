@@ -1,12 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
 
+interface TeamMember {
+  name: string;
+  email?: string;
+  role?: 'Leader' | 'Member' | string;
+  is_present?: boolean;
+  id_card_issued?: boolean;
+}
+
 interface Team {
   team_id: number;
   team_leader_name: string;
-  team_members: any[];
+  team_members: TeamMember[];
   registered_email: string;
   registered_phone: string;
   leader_present: boolean;
@@ -44,7 +52,7 @@ const AnalyticsDashboard = () => {
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
-  const fetchTeams = async () => {
+  const fetchTeams = useCallback(async () => {
     try {
       setLoading(true);
       const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
@@ -70,9 +78,9 @@ const AnalyticsDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedTeam]);
 
-  const handleUpdateMembers = async (teamId: number, updatedMembers: any[]) => {
+  const handleUpdateMembers = async (teamId: number, updatedMembers: TeamMember[]) => {
     setUpdatingId(teamId);
     try {
       const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
@@ -91,9 +99,10 @@ const AnalyticsDashboard = () => {
       setTeams(prev => prev.map(t => t.team_id === teamId ? updatedTeam : t));
       setSelectedTeam(updatedTeam);
       showSuccess(`Team #${teamId} updated successfully!`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating members:', err);
-      setNotification({ message: err.message, type: 'error' });
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setNotification({ message: errorMessage, type: 'error' });
     } finally {
       setUpdatingId(null);
     }
@@ -113,7 +122,7 @@ const AnalyticsDashboard = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(subscription); };
-  }, [navigate]);
+  }, [navigate, fetchTeams]);
 
   const fetchRooms = async (block: string) => {
     setRoomsLoading(true);
@@ -138,82 +147,6 @@ const AnalyticsDashboard = () => {
   const showSuccess = (msg: string) => {
     setNotification({ message: msg, type: 'success' });
     setTimeout(() => setNotification({ message: '', type: null }), 3000);
-  };
-
-  const togglePresence = async (teamId: number, currentStatus: boolean) => {
-    setUpdatingId(teamId);
-    const newStatus = !currentStatus;
-    setTeams(prev => prev.map(t => {
-      if (t.team_id === teamId) {
-        return {
-          ...t,
-          leader_present: newStatus,
-          team_members: Array.isArray(t.team_members) ? t.team_members.map(m => ({ ...m, is_present: newStatus })) : t.team_members
-        };
-      }
-      return t;
-    }));
-    try {
-      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-      const res = await fetch(`${baseUrl}/api/teams/${teamId}/attendance`, { method: 'PATCH' });
-      if (!res.ok) {
-        setTeams(prev => prev.map(t => {
-          if (t.team_id === teamId) {
-             return {
-               ...t,
-               leader_present: currentStatus,
-               team_members: Array.isArray(t.team_members) ? t.team_members.map(m => ({ ...m, is_present: currentStatus })) : t.team_members
-             };
-          }
-           return t;
-        }));
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to update attendance');
-      }
-      showSuccess(`Team #${teamId} marked as ${newStatus ? 'Present' : 'Absent'} successfully!`);
-    } catch (err) {
-      console.error('Error updating presence:', err);
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const toggleIdCard = async (teamId: number, currentStatus: boolean) => {
-    setUpdatingId(teamId);
-    const newStatus = !currentStatus;
-    setTeams(prev => prev.map(t => {
-      if (t.team_id === teamId) {
-        return {
-          ...t,
-          leader_id_issued: newStatus,
-          team_members: Array.isArray(t.team_members) ? t.team_members.map(m => ({ ...m, id_card_issued: newStatus })) : t.team_members
-        };
-      }
-      return t;
-    }));
-    try {
-      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-      const res = await fetch(`${baseUrl}/api/teams/${teamId}/idcard`, { method: 'PATCH' });
-      if (!res.ok) {
-        setTeams(prev => prev.map(t => {
-           if (t.team_id === teamId) {
-             return {
-               ...t,
-               leader_id_issued: currentStatus,
-               team_members: Array.isArray(t.team_members) ? t.team_members.map(m => ({ ...m, id_card_issued: currentStatus })) : t.team_members
-             };
-           }
-           return t;
-        }));
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to update ID card status');
-      }
-      showSuccess(`ID Card for Team #${teamId} ${newStatus ? 'Issued' : 'Revoked'} successfully!`);
-    } catch (err) {
-      console.error('Error updating ID card status:', err);
-    } finally {
-      setUpdatingId(null);
-    }
   };
 
   const filteredData = teams.filter(team => {
@@ -812,7 +745,7 @@ const AnalyticsDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {Array.isArray(selectedTeamDetail.team_members) && selectedTeamDetail.team_members.map((member: any, i: number) => (
+                      {Array.isArray(selectedTeamDetail.team_members) && selectedTeamDetail.team_members.map((member: TeamMember, i: number) => (
                         <tr key={i} className="hover:bg-gray-50 transition-colors">
                           <td className="px-5 py-3">
                             <span className={`text-xs font-bold px-2 py-1 rounded-full ${member.role === 'Leader' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
@@ -875,7 +808,7 @@ const AnalyticsDashboard = () => {
               </div>
 
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                {Array.isArray(selectedTeam.team_members) && selectedTeam.team_members.map((member: any, i: number) => (
+                {Array.isArray(selectedTeam.team_members) && selectedTeam.team_members.map((member: TeamMember, i: number) => (
                   <div key={i} className="bg-gray-50 rounded-2xl p-5 border border-gray-100 flex items-center justify-between group hover:bg-blue-50/50 hover:border-blue-100 transition-all">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${member.role === 'Leader' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>

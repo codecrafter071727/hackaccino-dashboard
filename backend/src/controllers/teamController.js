@@ -1,5 +1,7 @@
 const supabase = require('../config/supabaseClient');
 const { getIO } = require('../socket');
+const { generateQR } = require('../services/qrService');
+const { sendQREmail } = require('../services/emailService');
 
 // Get all teams or search with pagination
 const getTeams = async (req, res) => {
@@ -7,73 +9,56 @@ const getTeams = async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    // Optimization: Select only necessary fields
     let apiQuery = supabase
       .from('teams')
-      .select('team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room, leader_present, leader_id_issued', { count: 'exact' })
+      .select(
+        'team_id, team_name, team_leader_name, team_members, registered_email, registered_phone, team_status, current_phase, total_members_count, invite_status, mentors_assigned, allocated_room, leader_present, leader_id_issued, email_sent',
+        { count: 'exact' }
+      )
       .order('team_id', { ascending: true });
 
     if (query) {
-      // Search in basic fields (team_name, team_leader_name, email, phone)
-      // If query is a number, also search in team_id
       let searchFilter = `team_name.ilike.%${query}%,team_leader_name.ilike.%${query}%,registered_email.ilike.%${query}%,registered_phone.ilike.%${query}%`;
-      
       if (!isNaN(query)) {
         searchFilter += `,team_id.eq.${query}`;
       }
-      
       apiQuery = apiQuery.or(searchFilter);
-      
-      // For JSONB search, we might need to handle it differently with pagination.
-      // But for now, let's just do the basic search with limit/offset.
       apiQuery = apiQuery.range(offset, offset + limit - 1);
-      
       const { data, count, error } = await apiQuery;
       if (error) throw error;
-
-      return res.status(200).json({
-        data,
-        total: count,
-        page: parseInt(page),
-        limit: parseInt(limit)
-      });
+      return res.status(200).json({ data, total: count, page: parseInt(page), limit: parseInt(limit) });
     }
 
-    // Apply pagination
     apiQuery = apiQuery.range(offset, offset + limit - 1);
-
     const { data, count, error } = await apiQuery;
     if (error) throw error;
-    
-    res.status(200).json({
-      data,
-      total: count,
-      page: parseInt(page),
-      limit: parseInt(limit)
-    });
+
+    res.status(200).json({ data, total: count, page: parseInt(page), limit: parseInt(limit) });
   } catch (error) {
     console.error('Error fetching teams:', error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 };
 
-// Update team status (Unified team_members array)
+// Update team status and trigger QR + email when a member is first marked present
 const updateTeamStatus = async (req, res) => {
   const { id } = req.params;
-  const { team_members } = req.body; // Array containing everyone's status
+  const { team_members } = req.body;
 
   try {
-    // Logic: Auto-approve team if all members are present
+    const { data: currentTeam, error: fetchError } = await supabase
+      .from('teams')
+      .select('team_id, team_name, team_leader_name, registered_email, total_members_count, email_sent')
+      .eq('team_id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     const allPresent = team_members && team_members.length > 0 && team_members.every(m => m.is_present);
-    const updateData = { team_members };
-    
-    if (allPresent) {
-      updateData.team_status = 'Approved';
-    } else {
-      // Optional: Reset to Pending if someone is unmarked as present
-      // Only reset if it was previously Approved or is currently Pending
-      updateData.team_status = 'Pending';
-    }
+    const updateData = {
+      team_members,
+      team_status: allPresent ? 'Approved' : 'Pending',
+    };
 
     const { data, error } = await supabase
       .from('teams')
@@ -83,7 +68,6 @@ const updateTeamStatus = async (req, res) => {
 
     if (error) throw error;
 
-    // Emit socket event for team status update
     try {
       const io = getIO();
       io.emit('teamUpdate', data[0]);
@@ -91,7 +75,79 @@ const updateTeamStatus = async (req, res) => {
       console.error('Socket emission failed:', socketError);
     }
 
-    res.status(200).json(data[0]);
+    let qrGenerated = false;
+    let emailDispatched = false;
+
+    const hasAnyPresent = team_members && team_members.some(m => m.is_present);
+
+    if (!currentTeam.email_sent && hasAnyPresent) {
+      try {
+        const presentMembers = team_members
+          .filter(m => m.is_present)
+          .map(m => m.name);
+
+        const { qrImage, payload } = await generateQR({
+          teamId: id,
+          teamName: currentTeam.team_name || `Team #${id}`,
+          presentCount: presentMembers.length,
+        });
+
+        const { error: qrInsertError } = await supabase
+          .from('team_qr_codes')
+          .upsert(
+            {
+              team_id: id,
+              qr_image: qrImage,
+              qr_payload: payload,
+              attendance_uses_remaining: 2,
+              refreshment_uses_remaining: 2,
+              total_members: currentTeam.total_members_count || team_members.length,
+              present_members: presentMembers,
+              present_count: presentMembers.length,
+            },
+            { onConflict: 'team_id' }
+          );
+
+        if (qrInsertError) {
+          console.error('[teamController] Error saving QR to Supabase:', qrInsertError);
+        } else {
+          qrGenerated = true;
+          console.log(`[teamController] QR code stored for team ${id}`);
+        }
+
+        if (currentTeam.registered_email) {
+          await sendQREmail({
+            toEmail: currentTeam.registered_email,
+            leaderName: currentTeam.team_leader_name || 'Team Leader',
+            teamName: currentTeam.team_name || `Team #${id}`,
+            teamId: id,
+            presentMembers,
+            presentCount: presentMembers.length,
+            totalMembers: currentTeam.total_members_count || team_members.length,
+            qrBase64: qrImage,
+          });
+          emailDispatched = true;
+          console.log(`[teamController] QR email sent to ${currentTeam.registered_email}`);
+
+          await supabase
+            .from('teams')
+            .update({ email_sent: true })
+            .eq('team_id', id);
+        } else {
+          console.warn(`[teamController] Team ${id} has no registered_email — skipping email.`);
+        }
+      } catch (qrEmailError) {
+        console.error('[teamController] QR/Email error (non-fatal):', qrEmailError.message);
+      }
+    } else if (currentTeam.email_sent) {
+      console.log(`[teamController] Team ${id} already has email_sent=true — skipping QR/email.`);
+    }
+
+    res.status(200).json({
+      ...data[0],
+      qr_generated: qrGenerated,
+      email_dispatched: emailDispatched,
+    });
   } catch (error) {
     console.error('Error updating team status:', error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
@@ -108,47 +164,33 @@ const assignRoom = async (req, res) => {
   }
 
   try {
-    // Call the single unified RPC function that handles everything
-    // It decrements capacity AND updates the team in ONE transaction
-    const { data: result, error: rpcError } = await supabase.rpc('allocate_room_atomic', { 
+    const { data: result, error: rpcError } = await supabase.rpc('allocate_room_atomic', {
       p_team_id: id,
-      p_room_name: room_name 
+      p_room_name: room_name,
     });
 
     if (rpcError) throw rpcError;
 
-    // Check the result from the RPC
     if (!result.success) {
-      return res.status(400).json({ 
-        error: result.error, 
-        message: result.message 
-      });
+      return res.status(400).json({ error: result.error, message: result.message });
     }
 
-    // Emit socket event for real-time updates
     try {
       const io = getIO();
       io.emit('roomUpdate', {
         team: result.team,
         room: result.room,
         old_room: result.old_room,
-        old_room_name: result.old_room_name
+        old_room_name: result.old_room_name,
       });
     } catch (socketError) {
       console.error('Socket emission failed:', socketError);
     }
 
-    res.status(200).json({
-      message: 'Room assigned successfully',
-      team: result.team,
-      room: result.room
-    });
+    res.status(200).json({ message: 'Room assigned successfully', team: result.team, room: result.room });
   } catch (error) {
     console.error('Error assigning room:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
-      message: error.message || 'Failed to assign room' 
-    });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message || 'Failed to assign room' });
   }
 };
 
@@ -290,11 +332,75 @@ const updateMembers = async (req, res) => {
   }
 };
 
+// Valid scan slot types
+const VALID_SCAN_TYPES = ['attendance_1', 'attendance_2', 'refreshment_1', 'refreshment_2'];
+
+// Verify and record a QR code scan — uses service key to bypass RLS
+const verifyQR = async (req, res) => {
+  const { qr_data, scan_type } = req.body;
+  if (!qr_data || !scan_type) return res.status(400).json({ status: 'error', message: 'qr_data and scan_type are required.' });
+  if (!VALID_SCAN_TYPES.includes(scan_type)) return res.status(400).json({ status: 'error', message: 'Invalid scan_type.' });
+
+  try {
+    let payload;
+    try { payload = typeof qr_data === 'string' ? JSON.parse(qr_data) : qr_data; }
+    catch { return res.status(200).json({ status: 'invalid', message: 'Invalid QR code — not a Hackaccino QR.' }); }
+
+    // Support both new short-key format {i,t,n} and old format {team_id,team_name,...}
+    const teamId = String(payload.i || payload.team_id || '');
+    const teamName = payload.t || payload.team_name || '';
+
+    if (!teamId) {
+      return res.status(200).json({ status: 'invalid', message: 'Invalid QR code — not a recognized Hackaccino QR.' });
+    }
+
+    const { data: qrRecord, error: fetchError } = await supabase
+      .from('team_qr_codes').select('*').eq('team_id', teamId).single();
+
+    if (fetchError || !qrRecord) {
+      console.error('[verifyQR] Lookup error:', fetchError?.message);
+      return res.status(200).json({ status: 'invalid', message: 'QR code not found. Verify team registration.' });
+    }
+
+    const slotField = `${scan_type}_scanned`;
+    if (qrRecord[slotField] === true) {
+      return res.status(200).json({
+        status: 'already_scanned',
+        message: `Already scanned for ${scan_type.replace('_', ' ')}!`,
+        teamName, teamId,
+        leaderName: qrRecord.qr_payload?.leader_name || '',
+        presentMembers: qrRecord.present_members || [],
+      });
+    }
+
+    const { error: updateError } = await supabase
+      .from('team_qr_codes').update({ [slotField]: true }).eq('team_id', teamId);
+
+    if (updateError) {
+      console.error('[verifyQR] Update error:', updateError.message);
+      return res.status(500).json({ status: 'error', message: updateError.message });
+    }
+
+    console.log(`[verifyQR] ✅ ${scan_type} marked for team ${teamId} (${teamName})`);
+    return res.status(200).json({
+      status: 'success',
+      message: `${scan_type.replace('_', ' ')} recorded successfully!`,
+      teamName, teamId,
+      leaderName: qrRecord.qr_payload?.leader_name || '',
+      presentMembers: qrRecord.present_members || [],
+    });
+  } catch (error) {
+    console.error('[verifyQR] Unexpected error:', error);
+    return res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
 module.exports = {
   getTeams,
   updateTeamStatus,
   assignRoom,
   toggleAttendance,
   toggleIdCard,
-  updateMembers
+  updateMembers,
+  verifyQR,
 };

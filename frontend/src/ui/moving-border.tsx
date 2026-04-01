@@ -2,6 +2,15 @@
 import React from "react";
 import { cn } from "../lib/utils";
 
+type ButtonProps = {
+  borderRadius?: string;
+  children: React.ReactNode;
+  as?: React.ElementType;
+  containerClassName?: string;
+  duration?: number;
+  className?: string;
+} & Record<string, unknown>;
+
 export function Button({
   borderRadius = "1.75rem",
   children,
@@ -10,15 +19,7 @@ export function Button({
   duration = 3000,
   className,
   ...otherProps
-}: {
-  borderRadius?: string;
-  children: React.ReactNode;
-  as?: any;
-  containerClassName?: string;
-  duration?: number;
-  className?: string;
-  [key: string]: any;
-}) {
+}: ButtonProps) {
   return (
     <Component
       className={cn(

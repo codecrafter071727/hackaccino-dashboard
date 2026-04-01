@@ -75,7 +75,7 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         alert('Access Denied: Your assigned duties do not permit access to this page.');
         navigate('/');
       }
-    } catch (e) {
+    } catch {
       localStorage.removeItem('staffUser');
       if (!isModal) navigate('/');
     }
@@ -101,8 +101,9 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
       const data = await response.json();
       setVolunteers(data);
-    } catch (err: any) {
-      setError(err.message || 'Error loading volunteers. Please ensure backend is running.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || 'Error loading volunteers. Please ensure backend is running.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -134,8 +135,9 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         message: `${volunteer?.name} marked as ${!currentStatus ? 'Present' : 'Absent'} successfully!`, 
         type: 'success' 
       });
-    } catch (err: any) {
-      setToast({ message: err.message || 'Error updating presence status', type: 'error' });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setToast({ message: errorMessage || 'Error updating presence status', type: 'error' });
       console.error(err);
     } finally {
       setUpdatingId(null);
