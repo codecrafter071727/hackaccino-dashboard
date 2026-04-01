@@ -35,6 +35,7 @@ const AnalyticsDashboard = () => {
   const [activeTab, setActiveTab] = useState<'participants' | 'idcards' | 'rooms'>('participants');
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | null }>({ message: '', type: null });
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'present' | 'absent' | 'issued' | 'not_issued'>('all');
@@ -54,7 +55,7 @@ const AnalyticsDashboard = () => {
 
   const fetchTeams = useCallback(async () => {
     try {
-      setLoading(true);
+      if (initialLoad) setLoading(true);
       const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
       const res = await fetch(`${baseUrl}/api/teams?limit=2000`);
       
@@ -67,6 +68,7 @@ const AnalyticsDashboard = () => {
 
       console.log('AnalyticsDashboard fetched teams:', data?.length);
       setTeams(data || []);
+      if (initialLoad) setInitialLoad(false);
       
       // Update selected team if it's open in modal
       if (selectedTeam) {
@@ -76,9 +78,9 @@ const AnalyticsDashboard = () => {
     } catch (err) {
       console.error('Error fetching teams:', err);
     } finally {
-      setLoading(false);
+      if (initialLoad) setLoading(false);
     }
-  }, [selectedTeam]);
+  }, [selectedTeam, initialLoad]);
 
   const handleUpdateMembers = async (teamId: number, updatedMembers: TeamMember[]) => {
     setUpdatingId(teamId);
@@ -780,7 +782,7 @@ const AnalyticsDashboard = () => {
       {/* Members Modal */}
       {showMembersModal && selectedTeam && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMembersModal(false)}></div>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowMembersModal(false)}></div>
           <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="p-8">
               <div className="flex justify-between items-start mb-6">
