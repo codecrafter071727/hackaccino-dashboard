@@ -51,11 +51,14 @@ const AnalyticsDashboard = () => {
 
   // Individual member modal state
   const [showMembersModal, setShowMembersModal] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
-  const fetchTeams = useCallback(async () => {
+  // Memoized selected team to avoid manual syncing
+  const selectedTeam = selectedTeamId ? teams.find(t => t.team_id === selectedTeamId) : null;
+
+  const fetchTeams = useCallback(async (isBackground = false) => {
     try {
-      if (initialLoad) setLoading(true);
+      if (!isBackground) setLoading(true);
       const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
       const res = await fetch(`${baseUrl}/api/teams?limit=2000`);
       
@@ -68,19 +71,12 @@ const AnalyticsDashboard = () => {
 
       console.log('AnalyticsDashboard fetched teams:', data?.length);
       setTeams(data || []);
-      if (initialLoad) setInitialLoad(false);
-      
-      // Update selected team if it's open in modal
-      if (selectedTeam) {
-        const updated = (data || []).find((t: Team) => t.team_id === selectedTeam.team_id);
-        if (updated) setSelectedTeam(updated);
-      }
     } catch (err) {
       console.error('Error fetching teams:', err);
     } finally {
-      if (initialLoad) setLoading(false);
+      if (!isBackground) setLoading(false);
     }
-  }, [selectedTeam, initialLoad]);
+  }, []);
 
   const handleUpdateMembers = async (teamId: number, updatedMembers: TeamMember[]) => {
     setUpdatingId(teamId);
@@ -93,13 +89,20 @@ const AnalyticsDashboard = () => {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to update members');
+        let errorMsg = 'Failed to update members';
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+        } catch (jsonErr) {
+          const text = await res.text();
+          console.error('Server returned non-JSON error:', text.substring(0, 200));
+          errorMsg = `Server error (${res.status}): ${res.statusText}`;
+        }
+        throw new Error(errorMsg);
       }
 
       const updatedTeam = await res.json();
       setTeams(prev => prev.map(t => t.team_id === teamId ? updatedTeam : t));
-      setSelectedTeam(updatedTeam);
       showSuccess(`Team #${teamId} updated successfully!`);
     } catch (err: unknown) {
       console.error('Error updating members:', err);
@@ -116,14 +119,22 @@ const AnalyticsDashboard = () => {
       navigate('/admin/login');
       return;
     }
+    
+    // Initial fetch
     fetchTeams();
+
+    // Setup Supabase subscription once
     const subscription = supabase
       .channel('teams_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        fetchTeams();
+        // Background update doesn't trigger loading spinner
+        fetchTeams(true);
       })
       .subscribe();
-    return () => { supabase.removeChannel(subscription); };
+
+    return () => { 
+      supabase.removeChannel(subscription); 
+    };
   }, [navigate, fetchTeams]);
 
   const fetchRooms = async (block: string) => {
@@ -385,7 +396,7 @@ const AnalyticsDashboard = () => {
                       <tr 
                         key={team.team_id} 
                         className="hover:bg-gray-50 transition-colors group cursor-pointer"
-                        onClick={() => { setSelectedTeam(team); setShowMembersModal(true); }}
+                        onClick={() => { setSelectedTeamId(team.team_id); setShowMembersModal(true); }}
                       >
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
@@ -782,7 +793,7 @@ const AnalyticsDashboard = () => {
       {/* Members Modal */}
       {showMembersModal && selectedTeam && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowMembersModal(false)}></div>
+          <div className="absolute inset-0 bg-black/60" onClick={() => { setShowMembersModal(false); setSelectedTeamId(null); }}></div>
           <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="p-8">
               <div className="flex justify-between items-start mb-6">
@@ -800,7 +811,7 @@ const AnalyticsDashboard = () => {
                   </p>
                 </div>
                 <button 
-                  onClick={() => setShowMembersModal(false)}
+                  onClick={() => { setShowMembersModal(false); setSelectedTeamId(null); }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
