@@ -40,6 +40,10 @@ const AnalyticsDashboard = () => {
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<Team | null>(null);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
 
+  // Individual member modal state
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+
   const fetchTeams = async () => {
     try {
       setLoading(true);
@@ -55,10 +59,43 @@ const AnalyticsDashboard = () => {
 
       console.log('AnalyticsDashboard fetched teams:', data?.length);
       setTeams(data || []);
+      
+      // Update selected team if it's open in modal
+      if (selectedTeam) {
+        const updated = (data || []).find((t: Team) => t.team_id === selectedTeam.team_id);
+        if (updated) setSelectedTeam(updated);
+      }
     } catch (err) {
       console.error('Error fetching teams:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateMembers = async (teamId: number, updatedMembers: any[]) => {
+    setUpdatingId(teamId);
+    try {
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const res = await fetch(`${baseUrl}/api/teams/${teamId}/members`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team_members: updatedMembers }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update members');
+      }
+
+      const updatedTeam = await res.json();
+      setTeams(prev => prev.map(t => t.team_id === teamId ? updatedTeam : t));
+      setSelectedTeam(updatedTeam);
+      showSuccess(`Team #${teamId} updated successfully!`);
+    } catch (err: any) {
+      console.error('Error updating members:', err);
+      setNotification({ message: err.message, type: 'error' });
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -182,11 +219,13 @@ const AnalyticsDashboard = () => {
   const filteredData = teams.filter(team => {
     // Safely check for null/undefined before calling toLowerCase()
     const leaderName = team.team_leader_name || '';
+    const teamName = team.team_name || '';
     const email = team.registered_email || '';
     const teamIdStr = team.team_id ? team.team_id.toString() : '';
 
     const matchesSearch =
       leaderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      teamName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       teamIdStr.includes(searchQuery) ||
       email.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -408,10 +447,21 @@ const AnalyticsDashboard = () => {
                     </tr>
                   ) : (
                     filteredData.map((team) => (
-                      <tr key={team.team_id} className="hover:bg-gray-50 transition-colors group">
+                      <tr 
+                        key={team.team_id} 
+                        className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                        onClick={() => { setSelectedTeam(team); setShowMembersModal(true); }}
+                      >
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="font-bold text-gray-800">#{team.team_id} {team.team_leader_name}</span>
+                            <span className="font-bold text-gray-800">
+                              #{team.team_id} {team.team_name || team.team_leader_name}
+                            </span>
+                            {team.team_name && (
+                              <span className="text-[10px] text-blue-500 font-medium uppercase tracking-wider">
+                                Leader: {team.team_leader_name}
+                              </span>
+                            )}
                             <span className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -438,27 +488,11 @@ const AnalyticsDashboard = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {activeTab === 'participants' ? (
-                            <button
-                              onClick={() => togglePresence(team.team_id, team.leader_present)}
-                              disabled={updatingId === team.team_id}
-                              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${team.leader_present ? 'bg-white text-red-600 border border-red-100 hover:bg-red-50' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-100'}`}
-                            >
-                              {updatingId === team.team_id ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
-                              ) : team.leader_present ? 'Mark Absent' : 'Mark Present'}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => toggleIdCard(team.team_id, team.leader_id_issued)}
-                              disabled={updatingId === team.team_id}
-                              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${team.leader_id_issued ? 'bg-white text-amber-600 border border-amber-100 hover:bg-amber-50' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100'}`}
-                            >
-                              {updatingId === team.team_id ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
-                              ) : team.leader_id_issued ? 'Revoke ID' : 'Issue ID Card'}
-                            </button>
-                          )}
+                          <button
+                            className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
+                          >
+                            {activeTab === 'participants' ? 'Manage Attendance' : 'Issue ID Cards'}
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -809,6 +843,103 @@ const AnalyticsDashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Members Modal */}
+      {showMembersModal && selectedTeam && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMembersModal(false)}></div>
+          <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-800 flex items-center gap-3">
+                    {selectedTeam.team_name || selectedTeam.team_leader_name}
+                    <span className="text-sm font-mono text-gray-400 font-normal">#{selectedTeam.team_id}</span>
+                  </h2>
+                  <p className="text-gray-500 text-sm mt-1">
+                    {activeTab === 'participants' 
+                      ? 'Manage individual member attendance' 
+                      : activeTab === 'idcards' 
+                        ? 'Manage individual member ID card issuance' 
+                        : 'Manage individual member attendance and ID cards'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowMembersModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {Array.isArray(selectedTeam.team_members) && selectedTeam.team_members.map((member: any, i: number) => (
+                  <div key={i} className="bg-gray-50 rounded-2xl p-5 border border-gray-100 flex items-center justify-between group hover:bg-blue-50/50 hover:border-blue-100 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${member.role === 'Leader' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-gray-800">{member.name}</h4>
+                          {member.role === 'Leader' && (
+                            <span className="text-[10px] bg-blue-100 text-blue-600 font-black px-1.5 py-0.5 rounded uppercase">Leader</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">{member.email || 'No email provided'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Attendance Toggle - Only in Participants or Rooms tab */}
+                      {(activeTab === 'participants' || activeTab === 'rooms') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const updatedMembers = [...selectedTeam.team_members];
+                            updatedMembers[i] = { ...member, is_present: !member.is_present };
+                            handleUpdateMembers(selectedTeam.team_id, updatedMembers);
+                          }}
+                          disabled={updatingId === selectedTeam.team_id}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            member.is_present 
+                              ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
+                              : 'bg-white text-gray-400 border border-gray-200 hover:border-green-200 hover:text-green-600'
+                          }`}
+                        >
+                          {member.is_present ? '✓ PRESENT' : 'ABSENT'}
+                        </button>
+                      )}
+
+                      {/* ID Card Toggle - Only in ID Cards or Rooms tab */}
+                      {(activeTab === 'idcards' || activeTab === 'rooms') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const updatedMembers = [...selectedTeam.team_members];
+                            updatedMembers[i] = { ...member, id_card_issued: !member.id_card_issued };
+                            handleUpdateMembers(selectedTeam.team_id, updatedMembers);
+                          }}
+                          disabled={updatingId === selectedTeam.team_id}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            member.id_card_issued 
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' 
+                              : 'bg-white text-gray-400 border border-gray-200 hover:border-blue-200 hover:text-blue-600'
+                          }`}
+                        >
+                          {member.id_card_issued ? '✓ ID ISSUED' : 'ID PENDING'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

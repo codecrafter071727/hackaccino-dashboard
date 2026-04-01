@@ -240,10 +240,61 @@ const toggleIdCard = async (req, res) => {
   }
 };
 
+// Update individual members' status (attendance + ID cards)
+const updateMembers = async (req, res) => {
+  const { id } = req.params;
+  const { team_members } = req.body;
+
+  if (!Array.isArray(team_members)) {
+    return res.status(400).json({ error: 'team_members must be an array.' });
+  }
+
+  try {
+    // 1. Determine team-level status (only if ALL members are ticked)
+    const allPresent = team_members.length > 0 && team_members.every(m => !!m.is_present);
+    const allIdIssued = team_members.length > 0 && team_members.every(m => !!m.id_card_issued);
+    
+    const updateData = { 
+      team_members,
+      leader_present: allPresent,
+      leader_id_issued: allIdIssued
+    };
+    
+    if (allPresent) {
+      updateData.team_status = 'Approved';
+    } else {
+      updateData.team_status = 'Pending';
+    }
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update(updateData)
+      .eq('team_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Emit socket event for team status update
+    try {
+      const io = getIO();
+      io.emit('teamUpdate', data);
+    } catch (socketError) {
+      console.error('Socket emission failed:', socketError);
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error updating members:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+};
+
 module.exports = {
   getTeams,
   updateTeamStatus,
   assignRoom,
   toggleAttendance,
-  toggleIdCard
+  toggleIdCard,
+  updateMembers
 };
