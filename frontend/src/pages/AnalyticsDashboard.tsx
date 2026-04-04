@@ -1,7 +1,8 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
+import { io, Socket } from 'socket.io-client';
 
 interface TeamMember {
   name: string;
@@ -39,6 +40,7 @@ const AnalyticsDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'present' | 'absent' | 'issued' | 'not_issued'>('all');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   // Rooms tab state
   const [selectedBlock, setSelectedBlock] = useState<'N Block' | 'P Block' | null>(null);
@@ -51,6 +53,17 @@ const AnalyticsDashboard = () => {
   // Individual member modal state
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+
+  const activeTabRef = useRef(activeTab);
+  const selectedBlockRef = useRef(selectedBlock);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    selectedBlockRef.current = selectedBlock;
+  }, [selectedBlock]);
 
   // Memoized selected team to avoid manual syncing
   const selectedTeam = selectedTeamId ? teams.find(t => t.team_id === selectedTeamId) : null;
@@ -122,16 +135,63 @@ const AnalyticsDashboard = () => {
     // Initial fetch
     fetchTeams();
 
-    // Setup Supabase subscription once
+    // 1. Initialize Socket.io
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      withCredentials: true,
+      path: '/socket.io'
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('AnalyticsDashboard: Connected to WebSocket server');
+    });
+
+    socket.on('teamUpdate', (updatedTeam: Team) => {
+      console.log('AnalyticsDashboard: Real-time Team Update via Socket:', updatedTeam);
+      setTeams(prev => prev.map(t => 
+        t.team_id.toString() === updatedTeam.team_id.toString() ? { ...t, ...updatedTeam } : t
+      ));
+    });
+
+    socket.on('teamsRefreshed', (data: { message: string; count: number }) => {
+      console.log('AnalyticsDashboard: Teams refreshed via Socket:', data);
+      fetchTeams(true);
+    });
+
+    socket.on('roomUpdate', (data: { team: Team; room: Room; old_room?: Room; old_room_name?: string }) => {
+      console.log('AnalyticsDashboard: Real-time Room Update via Socket:', data);
+      
+      // Update the team in state
+      if (data.team) {
+        setTeams(prev => prev.map(t => 
+          t.team_id.toString() === data.team.team_id.toString() ? { ...t, ...data.team } : t
+        ));
+      }
+
+      // If we are currently on the rooms tab, refresh rooms for the selected block
+      if (activeTabRef.current === 'rooms' && selectedBlockRef.current) {
+        fetchRooms(selectedBlockRef.current);
+      }
+    });
+
+    // 2. Setup Supabase subscription as fallback
     const subscription = supabase
       .channel('teams_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        // Background update doesn't trigger loading spinner
-        fetchTeams(true);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
+        console.log('AnalyticsDashboard: Supabase Real-time Update:', payload);
+        const updatedTeam = payload.new as Team;
+        if (updatedTeam && updatedTeam.team_id) {
+          setTeams(prev => prev.map(t => 
+            t.team_id.toString() === updatedTeam.team_id.toString() ? { ...t, ...updatedTeam } : t
+          ));
+        }
       })
       .subscribe();
 
     return () => { 
+      if (socketRef.current) socketRef.current.disconnect();
       supabase.removeChannel(subscription); 
     };
   }, [navigate, fetchTeams]);

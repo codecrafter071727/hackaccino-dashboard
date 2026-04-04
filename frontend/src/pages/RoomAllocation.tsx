@@ -88,6 +88,18 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       setConnectionStatus('disconnected');
     });
 
+    socket.on('teamUpdate', (updatedTeam: Team) => {
+      console.log('Live team update received via Socket:', updatedTeam);
+      const updateState = (prevTeams: Team[]) => {
+        if (!prevTeams || prevTeams.length === 0) return prevTeams;
+        return prevTeams.map(t => 
+          t.team_id.toString() === updatedTeam.team_id.toString() ? { ...t, ...updatedTeam } : t
+        );
+      };
+      setAllTeams(updateState);
+      setFilteredTeams(updateState);
+    });
+
     socket.on('roomUpdate', (data: { team: Team; room?: Room; old_room?: Room | null; old_room_name?: string }) => {
       console.log('Live room update received via Socket:', data);
       
