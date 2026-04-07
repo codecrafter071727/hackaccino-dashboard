@@ -32,12 +32,12 @@ const Toast = ({ message, type }: { message: string; type: 'success' | 'error' }
     className="fixed top-6 left-1/2 -translate-x-1/2 z-[300]"
   >
     <div className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl shadow-2xl border min-w-[280px] ${type === 'success'
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400'
-        : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400'
+      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400'
+      : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400'
       }`}>
       <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${type === 'success'
-          ? 'bg-emerald-100 dark:bg-emerald-500/20'
-          : 'bg-red-100 dark:bg-red-500/20'
+        ? 'bg-emerald-100 dark:bg-emerald-500/20'
+        : 'bg-red-100 dark:bg-red-500/20'
         }`}>
         {type === 'success' ? (
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
@@ -54,87 +54,7 @@ const Toast = ({ message, type }: { message: string; type: 'success' | 'error' }
   </motion.div>
 );
 
-// ── Volunteer row card (mobile-friendly card + desktop table row) ─────────────
-const VolunteerRow = ({
-  volunteer,
-  updating,
-  onToggle,
-}: {
-  volunteer: Volunteer;
-  updating: boolean;
-  onToggle: () => void;
-}) => (
-  <tr className="hover:bg-gray-50/80 dark:hover:bg-white/[0.02] transition-colors group">
-    {/* Name */}
-    <td className="px-6 py-4">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/[0.07] border border-gray-200 dark:border-white/10 flex items-center justify-center text-xs font-black text-gray-500 dark:text-white/40 shrink-0">
-          {volunteer.name.charAt(0).toUpperCase()}
-        </div>
-        <span className="font-semibold text-sm text-gray-900 dark:text-white truncate max-w-[140px]">
-          {volunteer.name}
-        </span>
-      </div>
-    </td>
 
-    {/* Phone */}
-    <td className="px-6 py-4">
-      <span className="text-sm text-gray-500 dark:text-white/50 font-medium">{volunteer.phone_no}</span>
-    </td>
-
-    {/* Room */}
-    <td className="px-6 py-4">
-      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border
-        bg-blue-100 text-blue-700 border-blue-200
-        dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/25">
-        {volunteer.room_no}
-      </span>
-    </td>
-
-    {/* Time slot */}
-    <td className="px-6 py-4">
-      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border
-        bg-violet-100 text-violet-700 border-violet-200
-        dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25">
-        {volunteer.time_slot}
-      </span>
-    </td>
-
-    {/* Status */}
-    <td className="px-6 py-4">
-      <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${volunteer.is_present
-          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
-          : 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
-        }`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${volunteer.is_present ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-        {volunteer.is_present ? 'Present' : 'Absent'}
-      </span>
-    </td>
-
-    {/* Action */}
-    <td className="px-6 py-4 text-center">
-      <button
-        onClick={onToggle}
-        disabled={updating}
-        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 mx-auto min-w-[120px] ${volunteer.is_present
-            ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'
-            : 'bg-neon-green text-black hover:shadow-[0_0_16px_rgba(163,255,18,0.35)]'
-          } disabled:opacity-40 disabled:cursor-not-allowed active:scale-95`}
-      >
-        {updating ? (
-          <div className={`w-3 h-3 border-2 rounded-full animate-spin ${volunteer.is_present
-              ? 'border-red-300 border-t-red-600 dark:border-red-500/30 dark:border-t-red-400'
-              : 'border-black/20 border-t-black'
-            }`} />
-        ) : volunteer.is_present ? (
-          'Mark Absent'
-        ) : (
-          'Mark Present'
-        )}
-      </button>
-    </td>
-  </tr>
-);
 
 // ── Main component ────────────────────────────────────────────────────────────
 const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
@@ -231,14 +151,14 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
   // ── Shared inner content ───────────────────────────────────────────────────
   const content = (
-    <div className={`relative z-10 w-full max-w-[1600px] mx-auto px-6 md:px-10 ${isModal ? 'pt-6' : 'pt-32'} pb-20`}>
+    <div className={`relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 md:px-10 ${isModal ? 'pt-6' : 'pt-28 sm:pt-32'} pb-12 sm:pb-20`}>
 
       {/* Page heading */}
       <div className="mb-8">
         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600 dark:text-neon-green/60 mb-1">
           PCO Assignment
         </p>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
           Volunteer Duty
         </h1>
         <p className="text-gray-400 dark:text-white/30 text-sm mt-1">
@@ -247,13 +167,13 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
         {[
           { label: 'Total Volunteers', value: volunteers.length, icon: '⬡' },
           { label: 'Present', value: presentCount, icon: '◎' },
           { label: 'Absent', value: absentCount, icon: '◈' },
         ].map((s) => (
-          <div key={s.label} className="bg-white dark:bg-white/[0.025] border border-gray-200 dark:border-white/[0.06] rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm dark:shadow-none">
+          <div key={s.label} className="bg-white dark:bg-white/[0.025] border border-gray-200 dark:border-white/[0.06] rounded-2xl px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 shadow-sm dark:shadow-none">
             <span className="text-emerald-500 dark:text-neon-green/40 text-xl font-mono shrink-0">{s.icon}</span>
             <div className="min-w-0">
               <p className="text-xl font-bold text-gray-900 dark:text-white">{s.value}</p>
@@ -331,104 +251,162 @@ const PCODuty: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-100 dark:border-white/[0.06]">
-                  {['Volunteer', 'Contact', 'Room', 'Time Slot', 'Status', 'Action'].map((h) => (
-                    <th
-                      key={h}
-                      className={`px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-gray-400 dark:text-white/30 ${h === 'Action' ? 'text-center' : ''}`}
+          <>
+            <div className="overflow-x-auto hidden md:block">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-100 dark:border-white/[0.06]">
+                    {['Volunteer', 'Contact', 'Room', 'Time Slot', 'Status', 'Action'].map((h) => (
+                      <th
+                        key={h}
+                        className={`px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-gray-400 dark:text-white/30 ${h === 'Action' ? 'text-center' : ''}`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-white/[0.04]">
+                  {filteredVolunteers.map((volunteer, i) => (
+                    <motion.tr
+                      key={volunteer.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: Math.min(i * 0.02, 0.3) }}
+                      className="hover:bg-gray-50/80 dark:hover:bg-white/[0.02] transition-colors"
                     >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-white/[0.04]">
-                {filteredVolunteers.map((volunteer, i) => (
-                  <motion.tr
-                    key={volunteer.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                    className="hover:bg-gray-50/80 dark:hover:bg-white/[0.02] transition-colors"
-                  >
-                    {/* Volunteer name */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/[0.07] border border-gray-200 dark:border-white/10 flex items-center justify-center text-xs font-black text-gray-500 dark:text-white/40 shrink-0">
-                          {volunteer.name.charAt(0).toUpperCase()}
+                      {/* Volunteer name */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/[0.07] border border-gray-200 dark:border-white/10 flex items-center justify-center text-xs font-black text-gray-500 dark:text-white/40 shrink-0">
+                            {volunteer.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-semibold text-sm text-gray-900 dark:text-white truncate max-w-[160px]">
+                            {volunteer.name}
+                          </span>
                         </div>
-                        <span className="font-semibold text-sm text-gray-900 dark:text-white truncate max-w-[160px]">
-                          {volunteer.name}
-                        </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Phone */}
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-500 dark:text-white/50">{volunteer.phone_no}</span>
-                    </td>
+                      {/* Phone */}
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-gray-500 dark:text-white/50">{volunteer.phone_no}</span>
+                      </td>
 
-                    {/* Room */}
-                    <td className="px-6 py-4">
-                      <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border
+                      {/* Room */}
+                      <td className="px-6 py-4">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border
                         bg-blue-100 text-blue-700 border-blue-200
                         dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/25">
-                        {volunteer.room_no}
-                      </span>
-                    </td>
+                          {volunteer.room_no}
+                        </span>
+                      </td>
 
-                    {/* Time slot */}
-                    <td className="px-6 py-4">
-                      <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border
+                      {/* Time slot */}
+                      <td className="px-6 py-4">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border
                         bg-violet-100 text-violet-700 border-violet-200
                         dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25">
-                        {volunteer.time_slot}
-                      </span>
-                    </td>
+                          {volunteer.time_slot}
+                        </span>
+                      </td>
 
-                    {/* Status */}
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${volunteer.is_present
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${volunteer.is_present
                           ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
                           : 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
-                        }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${volunteer.is_present ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                        {volunteer.is_present ? 'Present' : 'Absent'}
-                      </span>
-                    </td>
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${volunteer.is_present ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                          {volunteer.is_present ? 'Present' : 'Absent'}
+                        </span>
+                      </td>
 
-                    {/* Action */}
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => handlePresenceToggle(volunteer.id, volunteer.is_present)}
-                        disabled={updatingId === volunteer.id}
-                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 mx-auto min-w-[120px]
+                      {/* Action */}
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => handlePresenceToggle(volunteer.id, volunteer.is_present)}
+                          disabled={updatingId === volunteer.id}
+                          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 mx-auto min-w-[120px]
                           ${volunteer.is_present
-                            ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'
-                            : 'bg-neon-green text-black hover:shadow-[0_0_16px_rgba(163,255,18,0.35)]'
-                          } disabled:opacity-40 disabled:cursor-not-allowed active:scale-95`}
-                      >
-                        {updatingId === volunteer.id ? (
-                          <div className={`w-3 h-3 border-2 rounded-full animate-spin ${volunteer.is_present
+                              ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'
+                              : 'bg-neon-green text-black hover:shadow-[0_0_16px_rgba(163,255,18,0.35)]'
+                            } disabled:opacity-40 disabled:cursor-not-allowed active:scale-95`}
+                        >
+                          {updatingId === volunteer.id ? (
+                            <div className={`w-3 h-3 border-2 rounded-full animate-spin ${volunteer.is_present
                               ? 'border-red-200 border-t-red-600 dark:border-red-500/30 dark:border-t-red-400'
                               : 'border-black/20 border-t-black'
-                            }`} />
-                        ) : volunteer.is_present ? 'Mark Absent' : 'Mark Present'}
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                              }`} />
+                          ) : volunteer.is_present ? 'Mark Absent' : 'Mark Present'}
+                        </button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card layout */}
+            <div className="md:hidden divide-y divide-gray-100 dark:divide-white/[0.04]">
+              {filteredVolunteers.map((volunteer, i) => (
+                <motion.div
+                  key={volunteer.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: Math.min(i * 0.02, 0.3) }}
+                  className="p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/[0.07] border border-gray-200 dark:border-white/10 flex items-center justify-center text-xs font-black text-gray-500 dark:text-white/40 shrink-0">
+                        {volunteer.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{volunteer.name}</p>
+                        <p className="text-xs text-gray-400 dark:text-white/40">{volunteer.phone_no}</p>
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border shrink-0 ${volunteer.is_present
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
+                      : 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${volunteer.is_present ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                      {volunteer.is_present ? 'Present' : 'Absent'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/25">
+                      {volunteer.room_no}
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25">
+                      {volunteer.time_slot}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handlePresenceToggle(volunteer.id, volunteer.is_present)}
+                    disabled={updatingId === volunteer.id}
+                    className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2
+                    ${volunteer.is_present
+                        ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
+                        : 'bg-neon-green text-black hover:shadow-[0_0_16px_rgba(163,255,18,0.35)]'
+                      } disabled:opacity-40 disabled:cursor-not-allowed active:scale-95`}
+                  >
+                    {updatingId === volunteer.id ? (
+                      <div className={`w-3 h-3 border-2 rounded-full animate-spin ${volunteer.is_present
+                        ? 'border-red-200 border-t-red-600 dark:border-red-500/30 dark:border-t-red-400'
+                        : 'border-black/20 border-t-black'
+                        }`} />
+                    ) : volunteer.is_present ? 'Mark Absent' : 'Mark Present'}
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Table footer — count */}
         {!loading && filteredVolunteers.length > 0 && (
-          <div className="px-6 py-3 border-t border-gray-100 dark:border-white/[0.05] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-3 border-t border-gray-100 dark:border-white/[0.05] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-white/25">
               Showing {filteredVolunteers.length} of {volunteers.length}
             </p>

@@ -243,7 +243,7 @@ const TeamDetailModal = ({
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8"
+    className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 md:p-8"
   >
     <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-lg" onClick={onClose} />
 
@@ -255,7 +255,7 @@ const TeamDetailModal = ({
         bg-white dark:bg-[#0a0a0a]/95
         backdrop-blur-2xl
         border border-gray-200 dark:border-white/[0.08]
-        rounded-[2rem]
+        rounded-2xl sm:rounded-[2rem]
         shadow-[0_32px_80px_rgba(0,0,0,0.12)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.7)]
         overflow-hidden flex flex-col"
     >
@@ -263,7 +263,7 @@ const TeamDetailModal = ({
       <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-neon-green/30 to-transparent" />
 
       {/* Modal header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-8 py-5 gap-4
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-8 py-4 sm:py-5 gap-3 sm:gap-4
         border-b border-gray-100 dark:border-white/[0.06]
         bg-gray-50/80 dark:bg-white/[0.02]">
         <div className="flex items-center gap-4">
@@ -318,7 +318,7 @@ const TeamDetailModal = ({
       </div>
 
       {/* Modal body */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-50/50 dark:bg-transparent">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 sm:space-y-8 bg-gray-50/50 dark:bg-transparent">
         {/* Team info grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Contact block */}
@@ -734,14 +734,14 @@ const RegistrationContent = ({
     : teams;
 
   return (
-    <div className={`relative z-10 flex-1 w-full max-w-[1600px] mx-auto px-6 md:px-10 ${isModal ? 'pt-6' : 'pt-32'} pb-20`}>
+    <div className={`relative z-10 flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 md:px-10 ${isModal ? 'pt-6' : 'pt-28 sm:pt-32'} pb-12 sm:pb-20`}>
 
       {/* Page heading */}
       <div className="mb-8">
         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600 dark:text-neon-green/60 mb-1">
           Student Registration
         </p>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
           Team Management
         </h1>
         <p className="text-gray-400 dark:text-white/30 text-sm mt-1">
@@ -750,13 +750,13 @@ const RegistrationContent = ({
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
         {[
           { label: 'Total Teams', value: teams.length, icon: '⬡' },
           { label: 'Present', value: `${totalPresent}/${totalMembers}`, icon: '◎' },
           { label: 'IDs Issued', value: totalIdIssued, icon: '◈' },
         ].map((s) => (
-          <div key={s.label} className="bg-white dark:bg-white/[0.025] border border-gray-200 dark:border-white/[0.06] rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm dark:shadow-none">
+          <div key={s.label} className="bg-white dark:bg-white/[0.025] border border-gray-200 dark:border-white/[0.06] rounded-2xl px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 shadow-sm dark:shadow-none">
             <span className="text-emerald-500 dark:text-neon-green/40 text-xl font-mono shrink-0">{s.icon}</span>
             <div className="min-w-0">
               <p className="text-xl font-bold text-gray-900 dark:text-white truncate">{s.value}</p>

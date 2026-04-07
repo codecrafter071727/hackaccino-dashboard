@@ -36,8 +36,8 @@ const Toast = ({
     }}
   >
     <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${type === 'success'
-        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
-        : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+      ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
+      : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
       }`}>
       {type === 'success' ? (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
@@ -50,8 +50,8 @@ const Toast = ({
       )}
     </div>
     <span className={`text-sm font-bold flex-1 ${type === 'success'
-        ? 'text-emerald-700 dark:text-emerald-400'
-        : 'text-red-700 dark:text-red-400'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : 'text-red-700 dark:text-red-400'
       }`}>
       {message}
     </span>
@@ -81,8 +81,8 @@ const SideNavItem = ({
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${active
-        ? 'bg-neon-green/10 text-emerald-700 dark:text-neon-green border border-neon-green/20'
-        : 'text-gray-500 dark:text-white/40 hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-white border border-transparent'
+      ? 'bg-neon-green/10 text-emerald-700 dark:text-neon-green border border-neon-green/20'
+      : 'text-gray-500 dark:text-white/40 hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-white border border-transparent'
       }`}
   >
     <span className={active ? 'text-emerald-600 dark:text-neon-green' : ''}>{icon}</span>
@@ -113,8 +113,8 @@ const FilterPill = ({
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider border transition-all shrink-0 ${active
-          ? activeColors[color]
-          : 'bg-white dark:bg-white/[0.04] text-gray-500 dark:text-white/40 border-gray-200 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.07] hover:text-gray-900 dark:hover:text-white'
+        ? activeColors[color]
+        : 'bg-white dark:bg-white/[0.04] text-gray-500 dark:text-white/40 border-gray-200 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.07] hover:text-gray-900 dark:hover:text-white'
         }`}
     >
       {label}
@@ -395,7 +395,7 @@ const AnalyticsDashboard = () => {
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600 dark:text-neon-green/60 leading-none mb-0.5">
               {activeTab === 'participants' ? 'Participants' : 'ID Cards'}
             </p>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
               {activeTab === 'participants' ? 'Attendance Tracking' : 'ID Card Issuance'}
             </h1>
           </div>
@@ -410,7 +410,7 @@ const AnalyticsDashboard = () => {
               placeholder="Search leader, ID, email…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-64 bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-white/20 rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-emerald-400 dark:focus:border-neon-green/30 focus:ring-2 focus:ring-emerald-100 dark:focus:ring-0 shadow-sm dark:shadow-none transition-all"
+              className="w-48 md:w-64 bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-white/20 rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-emerald-400 dark:focus:border-neon-green/30 focus:ring-2 focus:ring-emerald-100 dark:focus:ring-0 shadow-sm dark:shadow-none transition-all"
             />
           </div>
 
@@ -545,16 +545,16 @@ const AnalyticsDashboard = () => {
                         <td className="px-6 py-4">
                           {activeTab === 'participants' ? (
                             <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${team.leader_present
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
-                                : 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
+                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
+                              : 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'
                               }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${team.leader_present ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
                               {team.leader_present ? 'Present' : 'Absent'}
                             </span>
                           ) : (
                             <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${team.leader_id_issued
-                                ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
-                                : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
+                              ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
+                              : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
                               }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${team.leader_id_issued ? 'bg-blue-500' : 'bg-amber-500'}`} />
                               {team.leader_id_issued ? 'Issued' : 'Pending'}

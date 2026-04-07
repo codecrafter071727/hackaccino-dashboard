@@ -54,16 +54,16 @@ const AdminLogin = () => {
       </nav>
 
       {/* ── Login card ───────────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 flex items-center justify-center p-4">
+      <div className="relative z-10 flex-1 flex items-center justify-center p-3 sm:p-4">
         <div className="w-full max-w-md">
 
           {/* Card */}
-          <div className="relative bg-white dark:bg-[#0a0a0a]/95 backdrop-blur-2xl border-2 border-gray-200 dark:border-white/[0.10] rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.10)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden">
+          <div className="relative bg-white dark:bg-[#0a0a0a]/95 backdrop-blur-2xl border-2 border-gray-200 dark:border-white/[0.10] rounded-2xl sm:rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.10)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden">
 
             {/* Top accent line */}
             <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-neon-green/50 to-transparent" />
 
-            <div className="px-8 pt-10 pb-10">
+            <div className="px-5 sm:px-8 pt-8 sm:pt-10 pb-8 sm:pb-10">
 
               {/* Header */}
               <div className="text-center mb-10">

@@ -217,7 +217,7 @@ const AdminDashboard = () => {
 
       {/* ── Navbar ─────────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/[0.07] shadow-[0_1px_0_0_rgba(0,0,0,0.04)] dark:shadow-none">
-        <div className="max-w-7xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-10 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Logo */}
             <button onClick={() => navigate('/')} className="flex items-center gap-2.5 group">
@@ -256,14 +256,14 @@ const AdminDashboard = () => {
       </nav>
 
       {/* ── Page body ──────────────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 py-10">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-10 py-6 sm:py-10">
 
         {/* Heading */}
         <div className="mb-10">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600 dark:text-neon-green/60 mb-1">
             Admin Portal
           </p>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
             Dashboard Overview
           </h1>
           <p className="text-gray-400 dark:text-white/30 text-sm mt-1">
@@ -272,7 +272,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* ── Cards Grid ───────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
 
           {/* Role Assignment Card */}
           <div className="group relative rounded-2xl overflow-hidden flex flex-col bg-white dark:bg-white/[0.04] border-2 border-gray-200 dark:border-white/[0.12] hover:border-violet-300 dark:hover:border-violet-500/40 shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.14)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)] dark:hover:shadow-[0_12px_40px_rgba(0,0,0,0.65)] transition-all duration-300 p-8">
@@ -416,8 +416,8 @@ const AdminDashboard = () => {
                       <label
                         key={dutyName}
                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selectedDuties.includes(dutyName)
-                            ? 'bg-violet-50 border-violet-300 dark:bg-violet-500/15 dark:border-violet-500/40'
-                            : 'bg-gray-50 border-gray-200 dark:bg-white/[0.03] dark:border-white/[0.08] hover:border-gray-300 dark:hover:border-white/[0.15]'
+                          ? 'bg-violet-50 border-violet-300 dark:bg-violet-500/15 dark:border-violet-500/40'
+                          : 'bg-gray-50 border-gray-200 dark:bg-white/[0.03] dark:border-white/[0.08] hover:border-gray-300 dark:hover:border-white/[0.15]'
                           }`}
                       >
                         <div className="relative flex items-center">

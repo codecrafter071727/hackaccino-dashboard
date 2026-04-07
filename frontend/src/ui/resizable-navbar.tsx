@@ -62,7 +62,7 @@ export const Navbar = ({
           className={cn(
             "w-full rounded-full border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] backdrop-blur-2xl transition-all duration-500",
             "shadow-[0_0_1px_rgba(255,255,255,0.1)_inset,0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_0_1px_rgba(255,255,255,0.1)_inset,0_20px_40px_-15px_rgba(0,0,0,0.5)]",
-            scrolled ? "py-2.5 px-6" : "py-4 px-8"
+            scrolled ? "py-2.5 pl-6 pr-2" : "py-4 pl-8 pr-3"
           )}
         >
           {children}

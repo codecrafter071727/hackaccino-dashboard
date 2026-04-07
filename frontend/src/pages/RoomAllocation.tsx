@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
 import {
@@ -118,8 +118,8 @@ const RoomCard = ({
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-white/40">Occupancy</span>
           <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${isFull
-              ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30'
-              : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
+            ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30'
+            : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
             }`}>
             {isFull ? 'Full' : `${room.capacity} left`}
           </span>
@@ -200,6 +200,7 @@ const TeamAssignCard = ({
             </h3>
           </div>
           <div className="shrink-0 text-right">
+            <br></br>
             <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-white/35 mb-0.5">Members</p>
             <p className="text-xl font-bold text-gray-900 dark:text-white">{getMemberCount(team.team_members)}</p>
           </div>
@@ -412,7 +413,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
   const assignedTeams = Object.values(occupancyCounts).reduce((a, b) => a + b, 0);
 
   const content = (
-    <div className={`relative z-10 w-full max-w-[1600px] mx-auto px-6 md:px-10 ${isModal ? 'pt-6' : 'pt-32'} pb-20`}>
+    <div className={`relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 md:px-10 ${isModal ? 'pt-6' : 'pt-28 sm:pt-32'} pb-12 sm:pb-20`}>
 
       {/* Page heading + breadcrumb */}
       <div className="mb-8">
@@ -421,8 +422,8 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
             <span key={i} className="flex items-center gap-2">
               {i > 0 && <span className="text-gray-300 dark:text-white/25 text-xs">›</span>}
               <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${i === breadcrumb.length - 1
-                  ? 'text-emerald-600 dark:text-neon-green/70'
-                  : 'text-gray-400 dark:text-white/35 cursor-pointer hover:text-gray-600 dark:hover:text-white/60'
+                ? 'text-emerald-600 dark:text-neon-green/70'
+                : 'text-gray-400 dark:text-white/35 cursor-pointer hover:text-gray-600 dark:hover:text-white/60'
                 }`}>
                 {crumb}
               </span>
@@ -446,7 +447,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
             </button>
           )}
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
               {selectedRoom ? (
                 <span>
                   Assign to{' '}
@@ -471,13 +472,13 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
       {/* Stats bar — only on block view */}
       {selectedBlock && !selectedRoom && (
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
           {[
             { label: 'Total Rooms', value: totalRooms, icon: '⬡' },
             { label: 'Full Rooms', value: fullRooms, icon: '◎' },
             { label: 'Teams Assigned', value: assignedTeams, icon: '◈' },
           ].map((s) => (
-            <div key={s.label} className="bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/[0.12] rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+            <div key={s.label} className="bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/[0.12] rounded-2xl px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
               <span className="text-emerald-500 dark:text-neon-green/60 text-xl font-mono shrink-0">{s.icon}</span>
               <div className="min-w-0">
                 <p className="text-xl font-bold text-gray-900 dark:text-white">{s.value}</p>
@@ -500,7 +501,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
       {/* ── VIEW 1: Block selection ── */}
       {!selectedBlock && !selectedRoom && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto mt-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8 max-w-2xl mx-auto mt-6 sm:mt-10">
           <BlockCard
             letter="N"
             label="N Block"
@@ -569,7 +570,7 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
       {selectedRoom && (
         <div>
           {/* Room info banner */}
-          <div className="mb-6 bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/[0.12] rounded-2xl px-6 py-4 flex flex-wrap items-center gap-4 shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <div className="mb-6 bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/[0.12] rounded-2xl px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 sm:gap-4 shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-neon-green/10 border border-neon-green/20 flex items-center justify-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
@@ -579,10 +580,10 @@ const RoomAllocation: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
                 <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedRoom.room_name} · {selectedRoom.block}</p>
               </div>
             </div>
-            <div className="flex gap-3 ml-auto flex-wrap">
+            <div className="flex gap-2 sm:gap-3 sm:ml-auto flex-wrap">
               <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border ${selectedRoom.capacity === 0
-                  ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30'
-                  : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
+                ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30'
+                : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
                 }`}>
                 {selectedRoom.capacity === 0 ? 'Room Full' : `${selectedRoom.capacity} Slots Left`}
               </span>

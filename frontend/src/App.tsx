@@ -8,11 +8,8 @@ import {
   Navbar,
   NavBody,
   NavItems,
-  MobileNav,
   NavbarLogo,
   NavbarButton,
-  MobileNavToggle,
-  MobileNavMenu,
 } from "./ui/resizable-navbar";
 import { cn } from "./lib/utils";
 import { Spotlight } from "./ui/spotlight";
@@ -73,7 +70,7 @@ const FeatureModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 md:p-8"
     >
       {/* Backdrop with light blur to keep background visible */}
       <div
@@ -86,10 +83,10 @@ const FeatureModal = ({
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="relative w-full max-w-6xl max-h-[90vh] bg-white/95 dark:bg-[#0a0a0a]/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-6xl max-h-[90vh] bg-white/95 dark:bg-[#0a0a0a]/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]">
+        <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-neon-green/10 flex items-center justify-center border border-neon-green/20">
               <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
@@ -120,10 +117,10 @@ function DashboardHome() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [targetFeature, setTargetFeature] = useState<'Registration' | 'Room Allocation' | 'PCO Assignment' | null>(null);
   const [activeFeatureModal, setActiveFeatureModal] = useState<'Registration' | 'Room Allocation' | 'PCO Assignment' | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -134,6 +131,13 @@ function DashboardHome() {
     id: string;
     duty?: string;
   } | null>(null);
+
+  // Close mobile menu when modals open
+  useEffect(() => {
+    if (showLoginModal || activeFeatureModal) {
+      setMobileMenuOpen(false);
+    }
+  }, [showLoginModal, activeFeatureModal]);
 
   const verifyAndSetUser = useCallback(async (email: string | undefined, name: string | undefined) => {
     if (!email) return;
@@ -188,7 +192,7 @@ function DashboardHome() {
   }, [targetFeature]);
 
   useEffect(() => {
-    if (showLoginModal || activeFeatureModal) {
+    if (showLoginModal || activeFeatureModal || mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -196,7 +200,7 @@ function DashboardHome() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [showLoginModal, activeFeatureModal]);
+  }, [showLoginModal, activeFeatureModal, mobileMenuOpen]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -248,6 +252,7 @@ function DashboardHome() {
       setLoggedInUser(null);
       setActiveFeatureModal(null);
       setShowLoginModal(false);
+      setMobileMenuOpen(false);
 
       // 4. Force a complete page reload to the root URL
       window.location.href = window.location.origin;
@@ -342,22 +347,22 @@ function DashboardHome() {
           {/* Desktop Navigation */}
           <NavBody>
             {/* Left: Logo */}
-            <div className="flex-1 flex justify-start">
+            <div className="flex-1 flex justify-start shrink-0">
               <NavbarLogo onClick={() => navigate('/')} />
             </div>
 
-            {/* Center: Nav Items */}
-            <div className="flex-1 flex justify-center">
+            {/* Center: Nav Items — hidden on mobile */}
+            <div className="flex-1 hidden md:flex justify-center">
               <NavItems items={navItems} />
             </div>
 
             {/* Right: Actions */}
             <div className="flex-1 flex justify-end">
-              <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* Theme Toggle Button */}
                 <button
                   onClick={toggleTheme}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 transition-colors"
+                  className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 transition-colors"
                   aria-label="Toggle Theme"
                 >
                   {theme === 'dark' ? (
@@ -367,14 +372,15 @@ function DashboardHome() {
                   )}
                 </button>
 
+                {/* Desktop: User info + logout OR Superadmin button */}
                 {loggedInUser ? (
-                  <div className="flex items-center gap-4">
+                  <div className="hidden md:flex items-center gap-4">
                     {/* Profile Indicator */}
-                    <div className="flex items-center gap-3 bg-black/[0.04] dark:bg-white/5 border border-black/[0.08] dark:border-white/10 rounded-full pl-2 pr-4 py-1.5 hover:bg-black/[0.07] dark:hover:bg-white/10 transition-all cursor-default group shadow-sm dark:shadow-none">
-                      <div className="w-7 h-7 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-xs shadow-[0_0_10px_rgba(163,255,18,0.3)]">
+                    <div className="flex items-center gap-2 sm:gap-3 bg-black/[0.04] dark:bg-white/5 border border-black/[0.08] dark:border-white/10 rounded-full pl-1.5 sm:pl-2 pr-1.5 sm:pr-2 py-1 sm:py-1.5 hover:bg-black/[0.07] dark:hover:bg-white/10 transition-all cursor-default group shadow-sm dark:shadow-none min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-[10px] sm:text-xs shadow-[0_0_10px_rgba(163,255,18,0.3)] shrink-0">
                         {loggedInUser.name ? loggedInUser.name.charAt(0).toUpperCase() : (loggedInUser.email ? loggedInUser.email.charAt(0).toUpperCase() : 'U')}
                       </div>
-                      <div className="flex flex-col -space-y-0.5">
+                      <div className="flex-col -space-y-0.5 hidden sm:flex">
                         <span className="text-[11px] font-bold text-black dark:text-white tracking-tight">
                           {loggedInUser.name || loggedInUser.email?.split('@')[0] || 'User'}
                         </span>
@@ -387,10 +393,10 @@ function DashboardHome() {
                     {/* Logout Button */}
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all group"
+                      className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-500 hover:bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.3)] text-white active:scale-90 transition-all group shrink-0 ml-1"
+                      title="Logout"
                     >
-                      <span>Logout</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-0.5 transition-transform">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-0.5 transition-transform shrink-0">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                         <polyline points="16 17 21 12 16 7" />
                         <line x1="21" y1="12" x2="9" y2="12" />
@@ -398,97 +404,115 @@ function DashboardHome() {
                     </button>
                   </div>
                 ) : (
-                  <NavbarButton variant="secondary" onClick={() => navigate('/admin/login')}>
-                    Superadmin
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-                  </NavbarButton>
+                  <div className="hidden md:flex">
+                    <NavbarButton variant="secondary" className="text-[9px] sm:text-xs px-3 sm:px-5" onClick={() => navigate('/admin/login')}>
+                      <span className="hidden sm:inline">Superadmin</span>
+                      <span className="sm:hidden">Admin</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                    </NavbarButton>
+                  </div>
                 )}
-              </div>
 
-              {/* Mobile Nav Header (only visible on mobile) */}
-              <MobileNav>
-                <NavbarLogo onClick={() => navigate('/')} />
-                <div className="flex items-center gap-3">
-                  {loggedInUser && (
-                    <div className="w-8 h-8 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-xs border border-white/10">
-                      {loggedInUser.name ? loggedInUser.name.charAt(0).toUpperCase() : (loggedInUser.email ? loggedInUser.email.charAt(0).toUpperCase() : 'U')}
-                    </div>
+                {/* Mobile: Hamburger button — always visible on small screens */}
+                <button
+                  onClick={() => setMobileMenuOpen(prev => !prev)}
+                  className="md:hidden flex items-center justify-center w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 transition-colors"
+                  aria-label="Toggle mobile menu"
+                >
+                  {mobileMenuOpen ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700 dark:text-white">
+                      <path d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700 dark:text-white">
+                      <path d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
                   )}
-                  <MobileNavToggle
-                    isOpen={isMobileMenuOpen}
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  />
-                </div>
-              </MobileNav>
+                </button>
+              </div>
             </div>
           </NavBody>
+        </Navbar>
 
-          {/* Mobile Nav Menu */}
-          <MobileNavMenu isOpen={isMobileMenuOpen}>
-            <div className="flex flex-col gap-6">
-              {loggedInUser && (
-                <div className="flex items-center gap-4 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl p-4">
-                  <div className="w-12 h-12 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-lg shadow-[0_0_15px_rgba(163,255,18,0.3)]">
-                    {loggedInUser.name ? loggedInUser.name.charAt(0).toUpperCase() : (loggedInUser.email ? loggedInUser.email.charAt(0).toUpperCase() : 'U')}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-black dark:text-white font-bold">{loggedInUser.name || loggedInUser.email?.split('@')[0] || 'User'}</span>
-                    <span className="text-neon-green text-[10px] font-black uppercase tracking-[0.2em] dark:text-shadow-none xl:font-bold dark:font-black light:[-webkit-text-stroke:0.5px_black]">{loggedInUser.duties ? loggedInUser.duties.join(' • ') : (loggedInUser.duty || 'Staff')}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-4">
-                {navItems.map((item, idx) => (
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="md:hidden mx-3 mt-1 rounded-2xl bg-white/95 dark:bg-[#0d0d0d]/95 backdrop-blur-xl border border-gray-200/80 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden"
+            >
+              {/* Nav links */}
+              <nav className="flex flex-col px-2 pt-3 pb-2 gap-0.5">
+                {navItems.map((item) => (
                   <a
-                    key={`mobile-link-${idx}`}
+                    key={item.name}
                     href={item.link}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="text-lg font-medium text-gray-600 dark:text-gray-400 hover:text-neon transition-colors px-1"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-all tracking-tight"
                   >
+                    <span className="w-1.5 h-1.5 rounded-full bg-neon-green/60 shrink-0" />
                     {item.name}
                   </a>
                 ))}
-              </div>
+              </nav>
 
-              <hr className="border-white/10" />
+              {/* Divider */}
+              <div className="mx-4 h-px bg-gray-100 dark:bg-white/5" />
 
-              <div className="flex flex-col gap-4">
+              {/* User section */}
+              <div className="px-4 py-3">
                 {loggedInUser ? (
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="w-full py-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-bold flex items-center justify-center gap-2 hover:bg-red-500/20 transition-all"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Logout
-                  </button>
+                  <div className="flex flex-col gap-3">
+                    {/* Profile card */}
+                    <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/10 rounded-xl px-3 py-2.5">
+                      <div className="w-9 h-9 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-sm shadow-[0_0_10px_rgba(163,255,18,0.3)] shrink-0">
+                        {loggedInUser.name ? loggedInUser.name.charAt(0).toUpperCase() : (loggedInUser.email ? loggedInUser.email.charAt(0).toUpperCase() : 'U')}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-bold text-black dark:text-white tracking-tight truncate">
+                          {loggedInUser.name || loggedInUser.email?.split('@')[0] || 'User'}
+                        </span>
+                        <span className="text-[10px] text-black/70 dark:text-neon-green font-black uppercase tracking-widest truncate">
+                          {loggedInUser.duties ? loggedInUser.duties.join(' • ') : (loggedInUser.duty || 'Staff')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Logout button */}
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 font-semibold text-sm transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      Sign Out
+                    </button>
+                  </div>
                 ) : (
-                  <NavbarButton
-                    variant="secondary"
-                    className="text-sm py-3 border border-black/10 dark:border-white/10 rounded-full w-full"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      navigate('/admin/login');
-                    }}
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); navigate('/admin/login'); }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-gray-800 dark:text-white font-semibold text-sm transition-all"
                   >
-                    Superadmin Portal
-                  </NavbarButton>
+                    Superadmin
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
+                      <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </button>
                 )}
               </div>
-            </div>
-          </MobileNavMenu>
-        </Navbar>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Hero Section */}
-      <section className="pt-48 pb-32 px-6 relative z-10 w-full">
+      <section className="pt-32 sm:pt-40 md:pt-48 pb-16 sm:pb-24 md:pb-32 px-4 sm:px-6 relative z-10 w-full">
         <div className="max-w-4xl mx-auto flex flex-col items-center text-center">
           <div className="flex justify-center mb-8">
             <MovingBorderButton
@@ -501,8 +525,8 @@ function DashboardHome() {
             </MovingBorderButton>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-medium tracking-tighter text-gray-900 dark:text-white mb-8 leading-[0.9]">
-            Take control of your <br />
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-medium tracking-tighter text-gray-900 dark:text-white mb-6 sm:mb-8 leading-[0.95] sm:leading-[0.9]">
+            Take control of your <br className="hidden sm:block" />
             hackathon —{" "}
             {/* Updated span to add text border/stroke in light mode */}
             <span
@@ -512,7 +536,7 @@ function DashboardHome() {
             </span>
           </h1>
 
-          <p className="text-gray-600 dark:text-gray-400 text-lg md:text-lg mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base md:text-lg mb-8 sm:mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
             Hackaccino is the premier Bennett University hackathon, powered by the Computer Society of India (CSI).
             Everything you need to manage the biggest event, all in one place.
           </p>
@@ -562,7 +586,7 @@ function DashboardHome() {
       </section>
 
       {/* Cards Section */}
-      <main className="pb-32 px-6 relative z-10 w-full">
+      <main className="pb-16 sm:pb-24 md:pb-32 px-4 sm:px-6 relative z-10 w-full">
         <div className="max-w-6xl mx-auto">
           <div id="features" className="text-center mb-12">
             <span
@@ -674,7 +698,7 @@ function DashboardHome() {
         shadow-[0_-1px_0_0_rgba(0,0,0,0.04)] dark:shadow-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-900/10 blur-[120px] rounded-full pointer-events-none"></div>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 relative z-10">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-gray-100 dark:bg-white/5 rounded-lg flex items-center justify-center border border-gray-200 dark:border-white/10">
@@ -694,7 +718,7 @@ function DashboardHome() {
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-8">
+          <div className="flex items-center justify-center sm:justify-center gap-6 sm:gap-8">
             <div className="flex flex-col items-center gap-2 group cursor-pointer">
               <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center border border-gray-200 dark:border-white/10 p-3 transition-all duration-300 group-hover:bg-gray-200 dark:group-hover:bg-white/10 group-hover:border-gray-300 dark:group-hover:border-white/20">
                 <img src="/src/assets/csi.png" alt="CSI Logo" className="w-full h-full object-contain grayscale brightness-200 opacity-80 group-hover:opacity-100 transition-all duration-300" />
@@ -806,7 +830,7 @@ function DashboardHome() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-[#0a0a0a]/90 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2.5rem] p-10 w-full max-w-md shadow-[0_32px_80px_rgba(0,0,0,0.15)] dark:shadow-2xl overflow-hidden"
+            className="relative bg-white dark:bg-[#0a0a0a]/90 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl sm:rounded-[2.5rem] p-6 sm:p-10 w-full max-w-md shadow-[0_32px_80px_rgba(0,0,0,0.15)] dark:shadow-2xl overflow-hidden"
           >
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-neon-green/20 to-transparent" />
 
@@ -825,7 +849,7 @@ function DashboardHome() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">Staff Portal</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">Staff Portal</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed px-4">
                 Please sign in with your authorized Gmail to access <span className="text-neon-green font-bold light:[-webkit-text-stroke:0.5px_black] dark:[-webkit-text-stroke:0px]">{targetFeature}</span>
               </p>
