@@ -2,7 +2,6 @@
 Thumbs.db
 
 # Env files
-.env
 backend/.env
 frontend/.env
 
@@ -20,9 +19,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # IDE
-.vscode/
 .idea/
 
 # Environment files
 backend/.env
 frontend/.env
+config.bat
