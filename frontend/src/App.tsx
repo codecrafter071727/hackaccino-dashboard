@@ -307,14 +307,14 @@ function DashboardHome() {
   };
 
   const navItems = [
-    { name: "Home", link: "/" },
+    { name: "Home", link: "#home" },
     { name: "Features", link: "#features" },
     { name: "About", link: "#about" },
     { name: "Footer", link: "#footer" },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black flex flex-col items-center font-sans relative overflow-x-hidden transition-colors duration-300">
+    <div id="home" className="min-h-screen bg-gray-50 dark:bg-black flex flex-col items-center font-sans relative overflow-x-hidden transition-colors duration-300">
       {/* Background Layers */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <Spotlight
@@ -512,7 +512,7 @@ function DashboardHome() {
       </div>
 
       {/* Hero Section */}
-      <section className="pt-32 sm:pt-40 md:pt-48 pb-16 sm:pb-24 md:pb-32 px-4 sm:px-6 relative z-10 w-full">
+      <section id="about" className="pt-32 sm:pt-40 md:pt-48 pb-16 sm:pb-24 md:pb-32 px-4 sm:px-6 relative z-10 w-full">
         <div className="max-w-4xl mx-auto flex flex-col items-center text-center">
           <div className="flex justify-center mb-8">
             <MovingBorderButton
@@ -690,7 +690,7 @@ function DashboardHome() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full
+      <footer id="footer" className="w-full
         bg-white/80 dark:bg-[#0a0a0a]/60
         backdrop-blur-2xl
         border-t border-gray-200 dark:border-white/10
