@@ -1,1 +1,1 @@
-export const API_BASE_URL = 'https://hackaccino-dashboard-1.onrender.com';
+export const API_BASE_URL = 'https://hackaccino-backend-2x2zepq5nq-el.a.run.app';
