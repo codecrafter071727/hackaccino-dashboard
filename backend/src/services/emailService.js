@@ -14,13 +14,19 @@ async function sendQREmail({
   totalMembers,
   qrBase64,
 }) {
+  const emailUser = process.env.EMAIL_USER || process.env.VITE_EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS || process.env.VITE_EMAIL_PASS;
+  if (!emailUser || !emailPass) {
+    throw new Error('Missing EMAIL_USER/EMAIL_PASS in environment');
+  }
+
   const base64Data = qrBase64.replace(/^data:image\/png;base64,/, '');
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: emailUser,
+      pass: emailPass,
     },
   });
 
@@ -148,7 +154,7 @@ async function sendQREmail({
   `;
 
   const mailOptions = {
-    from: `"Hackaccino 4.0" <${process.env.EMAIL_USER}>`,
+    from: `"Hackaccino 4.0" <${emailUser}>`,
     to: toEmail,
     subject: `Hackaccino 4.0 — Your Hackathon Journey Starts Here, ${leaderName}!`,
     html: emailHtml,
