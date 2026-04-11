@@ -286,19 +286,6 @@ exports.refreshTeams = async (req, res) => {
         .insert(batch);
 
       if (insertError) throw insertError;
-
-    // Emit socket event for teams refreshed
-    try {
-      const io = getIO();
-      io.emit('teamsRefreshed', { message: 'Teams refreshed from source JSON', count: teams.length });
-    } catch (socketError) {
-      console.error('Socket emission failed:', socketError);
-    }
-
-    res.status(200).json({ 
-      message: 'Teams refreshed successfully!', 
-      count: teams.length 
-    });
     }
 
     // Emit socket event for teams refreshed

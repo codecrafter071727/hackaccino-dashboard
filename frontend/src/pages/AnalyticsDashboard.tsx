@@ -1,8 +1,7 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { API_BASE_URL } from '../config';
-import { io, Socket } from 'socket.io-client';
 
 interface TeamMember {
   name: string;
@@ -31,6 +30,12 @@ interface Room {
   capacity: number; // remaining capacity
 }
 
+type TeamsChangePayload = {
+  eventType?: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: Partial<Team> & { team_id?: unknown; team_members?: unknown };
+  old?: Partial<Team> & { team_id?: unknown };
+};
+
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'participants' | 'idcards' | 'rooms'>('participants');
@@ -40,7 +45,8 @@ const AnalyticsDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'present' | 'absent' | 'issued' | 'not_issued'>('all');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const hasLoadedRef = useRef(false);
+  const showMembersModalRef = useRef(false);
 
   // Rooms tab state
   const [selectedBlock, setSelectedBlock] = useState<'N Block' | 'P Block' | null>(null);
@@ -53,24 +59,16 @@ const AnalyticsDashboard = () => {
   // Individual member modal state
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-
-  const activeTabRef = useRef(activeTab);
-  const selectedBlockRef = useRef(selectedBlock);
+  const selectedTeam = selectedTeamId === null ? null : teams.find(t => t.team_id === selectedTeamId) ?? null;
 
   useEffect(() => {
-    activeTabRef.current = activeTab;
-  }, [activeTab]);
+    showMembersModalRef.current = showMembersModal;
+  }, [showMembersModal]);
 
-  useEffect(() => {
-    selectedBlockRef.current = selectedBlock;
-  }, [selectedBlock]);
-
-  // Memoized selected team to avoid manual syncing
-  const selectedTeam = selectedTeamId ? teams.find(t => t.team_id === selectedTeamId) : null;
-
-  const fetchTeams = useCallback(async (isBackground = false) => {
+  const fetchTeams = useCallback(async () => {
+    const isInitial = !hasLoadedRef.current;
     try {
-      if (!isBackground) setLoading(true);
+      if (isInitial) setLoading(true);
       const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
       const res = await fetch(`${baseUrl}/api/teams?limit=2000`);
       
@@ -86,7 +84,10 @@ const AnalyticsDashboard = () => {
     } catch (err) {
       console.error('Error fetching teams:', err);
     } finally {
-      if (!isBackground) setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+        hasLoadedRef.current = true;
+      }
     }
   }, []);
 
@@ -135,64 +136,94 @@ const AnalyticsDashboard = () => {
     // Initial fetch
     fetchTeams();
 
-    // 1. Initialize Socket.io
-    const socket = io(API_BASE_URL, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-      withCredentials: true,
-      path: '/socket.io'
-    });
-    socketRef.current = socket;
+    const pendingChangesRef = { current: [] as TeamsChangePayload[] };
+    const applyTimerRef = { current: null as number | null };
 
-    socket.on('connect', () => {
-      console.log('AnalyticsDashboard: Connected to WebSocket server');
-    });
-
-    socket.on('teamUpdate', (updatedTeam: Team) => {
-      console.log('AnalyticsDashboard: Real-time Team Update via Socket:', updatedTeam);
-      setTeams(prev => prev.map(t => 
-        t.team_id.toString() === updatedTeam.team_id.toString() ? { ...t, ...updatedTeam } : t
-      ));
-    });
-
-    socket.on('teamsRefreshed', (data: { message: string; count: number }) => {
-      console.log('AnalyticsDashboard: Teams refreshed via Socket:', data);
-      fetchTeams(true);
-    });
-
-    socket.on('roomUpdate', (data: { team: Team; room: Room; old_room?: Room; old_room_name?: string }) => {
-      console.log('AnalyticsDashboard: Real-time Room Update via Socket:', data);
-      
-      // Update the team in state
-      if (data.team) {
-        setTeams(prev => prev.map(t => 
-          t.team_id.toString() === data.team.team_id.toString() ? { ...t, ...data.team } : t
-        ));
-      }
-
-      // If we are currently on the rooms tab, refresh rooms for the selected block
-      if (activeTabRef.current === 'rooms' && selectedBlockRef.current) {
-        fetchRooms(selectedBlockRef.current);
-      }
-    });
-
-    // 2. Setup Supabase subscription as fallback
     const subscription = supabase
       .channel('teams_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
-        console.log('AnalyticsDashboard: Supabase Real-time Update:', payload);
-        const updatedTeam = payload.new as Team;
-        if (updatedTeam && updatedTeam.team_id) {
-          setTeams(prev => prev.map(t => 
-            t.team_id.toString() === updatedTeam.team_id.toString() ? { ...t, ...updatedTeam } : t
-          ));
-        }
+        pendingChangesRef.current.push(payload as unknown as TeamsChangePayload);
+
+        if (applyTimerRef.current) return;
+        applyTimerRef.current = window.setTimeout(() => {
+          const changes = pendingChangesRef.current;
+          pendingChangesRef.current = [];
+          applyTimerRef.current = null;
+
+          setTeams((prevTeams) => {
+            let nextTeams = prevTeams;
+            let changed = false;
+
+            for (const ch of changes) {
+              const eventType = ch.eventType;
+              const nextRaw = ch.new;
+              const oldRaw = ch.old;
+              const idRaw = nextRaw?.team_id ?? oldRaw?.team_id;
+              const id = typeof idRaw === 'string' ? Number(idRaw) : typeof idRaw === 'number' ? idRaw : Number(idRaw);
+              if (!Number.isFinite(id)) continue;
+
+              if (eventType === 'DELETE') {
+                const beforeLen = nextTeams.length;
+                nextTeams = nextTeams.filter(t => t.team_id !== id);
+                if (nextTeams.length !== beforeLen) changed = true;
+                continue;
+              }
+
+              const idx = nextTeams.findIndex(t => t.team_id === id);
+              if (idx >= 0) {
+                const existing = nextTeams[idx];
+                const merged: Team = {
+                  ...existing,
+                  ...(nextRaw as Partial<Team>),
+                  team_id: id,
+                  team_members:
+                    Array.isArray(nextRaw?.team_members) ? (nextRaw?.team_members as TeamMember[]) : existing.team_members,
+                };
+                nextTeams = [...nextTeams.slice(0, idx), merged, ...nextTeams.slice(idx + 1)];
+                changed = true;
+              } else if (nextRaw) {
+                const merged: Team = {
+                  ...(nextRaw as Partial<Team>),
+                  team_id: id,
+                  team_members: Array.isArray(nextRaw?.team_members) ? (nextRaw?.team_members as TeamMember[]) : [],
+                  team_leader_name: String((nextRaw as Partial<Team>).team_leader_name ?? ''),
+                  registered_email: String((nextRaw as Partial<Team>).registered_email ?? ''),
+                  registered_phone: String((nextRaw as Partial<Team>).registered_phone ?? ''),
+                  leader_present: Boolean((nextRaw as Partial<Team>).leader_present),
+                  leader_id_issued: Boolean((nextRaw as Partial<Team>).leader_id_issued),
+                };
+                nextTeams = [merged, ...nextTeams];
+                changed = true;
+              }
+            }
+
+            if (changed) {
+              nextTeams = [...nextTeams].sort((a, b) => a.team_id - b.team_id);
+            }
+
+            return nextTeams;
+          });
+
+          if (!showMembersModalRef.current) {
+            setSelectedTeamId(prevId => {
+              if (prevId === null) return prevId;
+              const changedTeamIds = new Set(
+                changes
+                  .map(ch => ch.new?.team_id ?? ch.old?.team_id)
+                  .map(idRaw => (typeof idRaw === 'string' ? Number(idRaw) : typeof idRaw === 'number' ? idRaw : Number(idRaw)))
+                  .filter(id => Number.isFinite(id))
+              );
+              return changedTeamIds.has(prevId) ? prevId : prevId;
+            });
+          }
+        }, 200);
       })
       .subscribe();
-
-    return () => { 
-      if (socketRef.current) socketRef.current.disconnect();
-      supabase.removeChannel(subscription); 
+    return () => {
+      if (applyTimerRef.current) {
+        window.clearTimeout(applyTimerRef.current);
+      }
+      supabase.removeChannel(subscription);
     };
   }, [navigate, fetchTeams]);
 

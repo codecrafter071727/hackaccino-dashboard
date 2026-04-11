@@ -291,7 +291,8 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
 
     setUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams/${selectedTeam.team_id}`, {
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const response = await fetch(`${baseUrl}/api/teams/${selectedTeam.team_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -307,7 +308,7 @@ const StudentRegistration: React.FC<{ isModal?: boolean }> = ({ isModal }) => {
         data = await response.json();
       } else {
         const text = await response.text();
-        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+        throw new Error(`Server returned non-JSON response (${response.status}): ${text.substring(0, 120)}`);
       }
 
       if (response.ok) {
